@@ -325,7 +325,12 @@ class Orchestrator:
 
 ### 2. LocalQwenAPI (`backend/tools/local_qwen_api.py`)
 
-**功能**：本地Qwen模型的加载和推理接口
+**功能**：使用千问开源模型1.8b作为基础模型
+
+**如何下载模型到本地**
+-https://modelscope.cn/models/qwen/Qwen-1_8B-Chat/summary  
+-连接中有多种方式下载
+-或者运行根目录中的download文件
 
 **主要方法**：
 - `__init__()`: 自动查找并加载模型（支持LoRA微调模型）
@@ -391,6 +396,9 @@ class VisionTester:
 ### 4. ImageProcessing (`backend/tools/image_processing.py`)
 
 **功能**：OCT图像的分类分析
+
+**模型训练使用到的数据集连接**
+-https://data.mendeley.com/datasets/sncdhf53xc/4
 
 **主要方法**：
 - `load_model()`: 加载训练好的ResNet50分类模型
@@ -585,19 +593,25 @@ class MedicalAssistant:
    pip install tensorflow-cpu==2.13.0
    ```
 
-4. **下载Qwen模型（可选，如果已有本地模型可跳过）**
+4. **下载Qwen模型**
+   -https://modelscope.cn/models/qwen/Qwen-1_8B-Chat/summary
    - 模型应放在 `./Qwen-1_8B-Chat/` 目录
    - 或修改 `backend/tools/local_qwen_api.py` 中的模型路径
 
-5. **准备OCT分类模型（可选）**
+5. **准备OCT分类模型**
+   -数据来源：https://data.mendeley.com/datasets/sncdhf53xc/4
    - 训练模型：`python training/train_oct_pytorch.py`
    - 或使用已有的 `models/best_model.pth`
-
+6. **Lora微调**
+   本项目目前未使用大量对话数据进行微调，只是使用自建数据集进行了微调，后面请使用对话数据集微调
+   推荐使用数据：
+   视觉问答数据集：https://www.selectdataset.com/dataset/18ad58ca06bf3dad37714b9abed39ade
+   整个医疗领域的对话数据集：https://github.com/FreedomIntelligence/Huatuo-26M?tab=readme-ov-file
 ### 配置文件
 
 - **模型路径**：在 `backend/tools/local_qwen_api.py` 中配置
-- **记忆文件**：`user_memory.json`（自动创建）
-- **上传目录**：`uploads/`（自动创建）
+- **记忆文件**：`user_memory.json`
+- **上传目录**：`uploads/`
 
 ---
 
@@ -693,7 +707,7 @@ python training/finetune_qwen.py
 - `qwen_finetuned_model/adapter_model.safetensors`: LoRA适配器
 - `qwen_finetuned_model/finetune_loss_curve.png`: 微调损失曲线
 
-### 3. 强化学习微调（可选）
+### 3. 强化学习微调
 
 **训练奖励模型**：
 ```bash
