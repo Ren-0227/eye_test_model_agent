@@ -193,16 +193,26 @@ assistant = MedicalAssistant()
 
 @app.route('/chat', methods=['POST'])
 def chat_endpoint():
-    # 优先从request.json获取user_id，其次从cookies，最后生成新的
+    # 支持FormData和JSON两种格式
+    # 优先从FormData获取，其次从JSON，最后从cookies，最后生成新的
     user_id = None
-    if request.json:
+    if request.form:
+        user_id = request.form.get('user_id')
+    if not user_id and request.json:
         user_id = request.json.get('user_id')
     if not user_id:
         user_id = request.cookies.get('user_id')
     if not user_id:
         user_id = str(uuid.uuid4())
     
-    text_input = request.json.get('text', '') if request.json else ''
+    # 文本输入：优先从FormData，其次从JSON
+    text_input = ''
+    if request.form:
+        text_input = request.form.get('text', '')
+    if not text_input and request.json:
+        text_input = request.json.get('text', '')
+    
+    # 图片文件：从FormData获取
     image_file = request.files.get('image')
     
     try:
