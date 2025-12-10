@@ -1388,7 +1388,10 @@
 	    // 聊天界面辅助函数
 	    function addMessageToChat(content, isUser) {
 	        const chatContainer = document.getElementById('chat-messages-container');
-	        if (!chatContainer) return;
+	        if (!chatContainer) {
+	            console.warn('Chat container not found');
+	            return;
+	        }
 	        
 	        const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 	        
@@ -1397,7 +1400,7 @@
 	            messageHtml = `
 	                <div class="flex items-start justify-end">
 	                    <div class="bg-primary-blue text-white rounded-tr-none rounded-lg p-3 max-w-[75%] card-shadow">
-	                        <p class="text-sm">${content}</p>
+	                        <p class="text-sm whitespace-pre-wrap">${escapeHtml(content)}</p>
 	                        <p class="text-xs opacity-70 mt-1">${time}</p>
 	                    </div>
 	                </div>
@@ -1409,7 +1412,7 @@
 	                        <i class="fa fa-robot"></i>
 	                    </div>
 	                    <div class="bg-card rounded-tl-none rounded-lg p-3 max-w-[75%] card-shadow">
-	                        <p class="text-sm">${content}</p>
+	                        <p class="text-sm whitespace-pre-wrap">${escapeHtml(content)}</p>
 	                        <p class="text-xs text-text-secondary mt-1">${time}</p>
 	                    </div>
 	                </div>
@@ -1418,6 +1421,13 @@
 	        
 	        chatContainer.insertAdjacentHTML('beforeend', messageHtml);
 	        chatContainer.scrollTop = chatContainer.scrollHeight;
+	    }
+	    
+	    // HTML转义函数
+	    function escapeHtml(text) {
+	        const div = document.createElement('div');
+	        div.textContent = text;
+	        return div.innerHTML;
 	    }
 	    
 	    function addLoadingIndicator() {
@@ -1618,11 +1628,14 @@
 	        }
 	    }
 	    
-	    // 当切换到个人中心模块时重新加载健康数据
-	    const profileTab = document.querySelector('[data-tab="profile"]');
-	    if (profileTab) {
-	        profileTab.addEventListener('click', () => {
-	            setTimeout(loadHealthData, 100);
+	    // 当切换到个人中心模块时重新加载健康数据和图表
+	    const profileTabEl = document.querySelector('[data-tab="profile"]');
+	    if (profileTabEl) {
+	        profileTabEl.addEventListener('click', () => {
+	            setTimeout(() => {
+	                loadHealthData();
+	                loadVisionTrendChart();
+	            }, 100);
 	        });
 	    }
 	    
