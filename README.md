@@ -855,24 +855,11 @@ python training/generate_architecture_diagrams.py
 3. **GPU加速**：建议使用GPU加速LLM推理
 4. **TensorFlow版本**：MediaPipe需要TensorFlow 2.13.0
 5. **用户记忆**：`user_memory.json` 会在项目根目录自动创建
-
----
-
-## 🤝 贡献
-
-欢迎提交Issue和Pull Request！
-
----
-
-## 📄 许可证
-
-[添加许可证信息]
-
 ---
 
 ## 📧 联系方式
 
-[添加联系方式]
+2402744495@qq.com
 
 ---
 
