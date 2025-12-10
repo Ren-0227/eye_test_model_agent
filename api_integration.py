@@ -1,49 +1,56 @@
 # api_integration.py
-import requests
+"""
+使用本地千问 1.8B（或微调后权重）提供健康咨询接口。
+如果模型未下载/未微调，请先运行 finetune 脚本下载或准备模型权重。
+"""
+from backend.tools.local_qwen_api import LocalQwenAPI
 
-class DeepseekAPI:
-    def __init__(self):
-        # 设置 API 密钥和端点
-        self.api_key = "sk-ckblwoobzunmdgolnyeoeuyiswsytxtoywmepoarropzelgy"
-        self.url = "https://api.siliconflow.cn/v1/chat/completions"
+
+class LocalQwenClient:
+    """简单封装，保持与旧 DeepseekAPI 相同的 get_health_advice 接口名。"""
+
+    def __init__(self, model_path=None, base_model_name=None):
+        """
+        初始化千问客户端
         
-        # 构造请求头
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        Args:
+            model_path: 模型路径，如果为None则自动搜索
+            base_model_name: 基础模型名称
+        """
+        self.api = LocalQwenAPI(model_path=model_path, base_model_name=base_model_name)
 
-    def get_health_advice(self, symptoms):
-        """获取健康建议"""
-        # 构造请求体
-        data = {
-            "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": f"你是一个眼部医疗助手。患者症状：{symptoms}。请给出详细的诊断建议，包括可能的疾病、建议的检查、护理建议和紧急程度。"
-                }
-            ],
-            "stream": False,
-            "max_tokens": 512,
-            "temperature": 0.7,
-            "top_p": 0.7,
-            "top_k": 50,
-            "frequency_penalty": 0.5
-        }
-
-        try:
-            # 发送 POST 请求
-            response = requests.post(self.url, headers=self.headers, json=data)
+    def get_health_advice(self, symptoms, vision_result=None, oct_result=None):
+        """
+        获取健康建议
+        
+        Args:
+            symptoms: 症状描述
+            vision_result: 视力检测结果（可选）
+            oct_result: OCT检查结果（可选）
             
-            # 处理响应
-            if response.status_code == 200:
-                result = response.json()
-                if 'choices' in result and len(result['choices']) > 0:
-                    return result['choices'][0]['message']['content']
-                else:
-                    return "API未返回有效内容"
-            else:
-                return f"请求失败，状态码: {response.status_code}，错误信息: {response.text}"
-        except requests.exceptions.RequestException as e:
-            return f"网络请求失败: {str(e)}"
+        Returns:
+            dict: 包含状态和回答的字典
+        """
+        return self.api.get_health_advice(
+            symptoms=symptoms,
+            vision_result=vision_result,
+            oct_result=oct_result,
+        )
+
+    def is_ready(self):
+        """
+        检查模型是否准备好
+        
+        Returns:
+            bool: 模型是否加载成功
+        """
+        return self.api.load_error is None
+
+    def get_error(self):
+        """
+        获取模型加载错误信息
+        
+        Returns:
+            str or None: 错误信息，如果没有错误则返回None
+        """
+        return self.api.load_error

@@ -1,0 +1,47 @@
+# Flask 相关
+Flask>=2.3.0
+requests>=2.31.0
+
+# PyTorch 相关（根据 CUDA 版本选择，这里是 CPU 版本，如有 GPU 请安装对应版本）
+torch>=2.0.0
+torchvision>=0.15.0
+
+# 图像处理
+Pillow>=9.5.0
+opencv-python>=4.8.0
+
+# 数据处理
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+
+# 千问模型相关
+transformers>=4.35.0,<=4.38.0
+accelerate>=0.24.0
+peft>=0.6.0
+bitsandbytes>=0.41.0  # 用于 QLoRA 量化
+datasets>=2.14.0
+sentencepiece>=0.1.99  # Qwen tokenizer 需要
+protobuf>=3.20.0,<4.0.0  # transformers兼容性要求
+tiktoken>=0.5.0  # Qwen分词器需要
+
+# 训练监控
+tensorboard>=2.14.0
+tqdm>=4.65.0
+matplotlib>=3.5.0  # 用于绘制训练loss曲线
+
+# 强化学习微调（TRL库）
+trl>=0.7.0
+
+# Flash Attention (可选，用于提高推理效率)
+# flash-attn>=2.0.0  # 需要从源码安装: pip install git+https://github.com/Dao-AILab/flash-attention.git
+
+# 其他工具
+PyQt5>=5.15.0
+
+# 视力检测相关（MediaPipe）
+mediapipe>=0.10.0
+# MediaPipe 需要特定版本的 tensorflow，但不需要完整安装
+# 如果遇到 tensorflow 依赖问题，可以尝试：
+# pip install tensorflow==2.13.0 或 tensorflow-cpu==2.13.0
+# 或者使用 mediapipe 的独立版本（不依赖 tensorflow）

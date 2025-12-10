@@ -1,0 +1,10 @@
+# 核心：必须排除archive文件夹（你的需求）
+archive/
+# 推荐排除：缓存、日志、临时文件（可选但建议）
+__pycache__/
+logs/
+# 可选：排除上传临时文件（如果uploads是本地临时目录）
+uploads/
+# 系统自动生成的冗余文件
+.DS_Store  # macOS
+Thumbs.db  # Windows
