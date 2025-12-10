@@ -33,6 +33,14 @@ class LocalQwenAPI:
         self.model = None
         self.tokenizer = None
         self.load_error = None
+        
+        # 在Windows上设置环境变量，优化文件访问
+        if os.name == 'nt':  # Windows
+            # 禁用mmap以提高文件访问稳定性
+            os.environ.setdefault("HF_HUB_DISABLE_MMAP", "1")
+            # 使用单线程加载避免文件句柄冲突
+            os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+        
         self._maybe_load()
 
     def run_smoke_test(self, prompt: str = "请用一句话自我介绍。") -> Dict[str, Any]:
@@ -122,16 +130,44 @@ class LocalQwenAPI:
         try:
             print(f"正在加载模型分词器，路径: {model_path_abs}")
             
+            # 在Windows上，先检查文件是否可访问
+            if os.name == 'nt':
+                tokenizer_files = [
+                    os.path.join(model_path_abs, "tokenizer.json"),
+                    os.path.join(model_path_abs, "tokenizer_config.json"),
+                    os.path.join(model_path_abs, "vocab.json"),
+                ]
+                for tf in tokenizer_files:
+                    if os.path.exists(tf):
+                        try:
+                            # 尝试以只读模式打开文件，检查是否被锁定
+                            with open(tf, 'rb') as test_f:
+                                test_f.read(1)
+                        except (OSError, IOError) as e:
+                            if "WinError 6" in str(e) or "句柄无效" in str(e):
+                                raise OSError(
+                                    f"无法访问分词器文件 {tf}，文件可能被其他进程锁定。\n"
+                                    f"请关闭可能使用该文件的程序（如其他Python进程、文件管理器、IDE等），然后重试。\n"
+                                    f"原始错误: {e}"
+                                ) from e
+            
             # 在Windows上，确保路径格式正确，并使用本地文件系统标志
             # 使用绝对路径避免相对路径导致的文件句柄问题
             tokenizer_path = model_path_abs
             
-            # 加载tokenizer，添加use_fast=False避免Windows上的文件句柄问题
+            # 加载tokenizer，在Windows上使用特殊配置
+            tokenizer_kwargs = {
+                "trust_remote_code": True,
+                "local_files_only": True  # 强制使用本地文件
+            }
+            
+            # Windows特殊处理
+            if os.name == 'nt':
+                tokenizer_kwargs["use_fast"] = False  # 避免快速tokenizer的文件句柄问题
+            
             self.tokenizer = AutoTokenizer.from_pretrained(
                 tokenizer_path, 
-                trust_remote_code=True,
-                use_fast=False,  # 在Windows上避免文件句柄问题
-                local_files_only=True  # 强制使用本地文件，避免网络访问
+                **tokenizer_kwargs
             )
             
             if self.tokenizer.pad_token is None:
@@ -154,13 +190,65 @@ class LocalQwenAPI:
             else:
                 base_name_abs = base_name  # 如果是HuggingFace模型名称，保持原样
             
-            # 加载模型，添加local_files_only避免网络访问导致的文件句柄问题
+            # 加载模型，在Windows上使用特殊配置
+            model_kwargs = {
+                "trust_remote_code": True,
+                "torch_dtype": torch.float16 if self.device == "cuda" else torch.float32,
+            }
+            
+            # 设备映射
+            if self.device == "cuda":
+                model_kwargs["device_map"] = "auto"
+            else:
+                model_kwargs["device_map"] = None
+            
+            # Windows特殊处理：禁用mmap避免文件句柄问题
+            if os.name == 'nt' and os.path.exists(base_name_abs):
+                model_kwargs["local_files_only"] = True
+                # 尝试使用low_cpu_mem_usage减少内存占用和文件锁定
+                try:
+                    model_kwargs["low_cpu_mem_usage"] = True
+                except:
+                    pass
+            elif os.path.exists(base_name_abs):
+                model_kwargs["local_files_only"] = True
+            
+            # 在Windows上，先检查模型文件是否可访问
+            if os.name == 'nt' and os.path.exists(base_name_abs):
+                # 测试关键文件访问权限
+                test_files = [
+                    os.path.join(base_name_abs, "config.json"),
+                ]
+                # 检查权重文件
+                weight_patterns = [
+                    os.path.join(base_name_abs, "model-*.safetensors"),
+                    os.path.join(base_name_abs, "pytorch_model*.bin"),
+                ]
+                import glob
+                for pattern in weight_patterns:
+                    test_files.extend(glob.glob(pattern)[:1])  # 只检查第一个匹配的文件
+                
+                for test_file in test_files:
+                    if os.path.exists(test_file):
+                        try:
+                            # 尝试以只读模式打开文件，检查是否被锁定
+                            with open(test_file, 'rb') as f:
+                                f.read(1)  # 尝试读取一个字节
+                        except (OSError, IOError) as e:
+                            if "WinError 6" in str(e) or "句柄无效" in str(e):
+                                raise OSError(
+                                    f"无法访问模型文件 {test_file}，文件可能被其他进程锁定。\n"
+                                    f"请执行以下操作：\n"
+                                    f"1. 关闭所有可能使用该文件的程序（其他Python进程、文件管理器、IDE等）\n"
+                                    f"2. 如果使用文件管理器，请关闭包含该文件夹的窗口\n"
+                                    f"3. 重启IDE或终端，然后重试\n"
+                                    f"4. 如果问题持续，尝试重启系统\n"
+                                    f"原始错误: {e}"
+                                ) from e
+            
             base_model = AutoModelForCausalLM.from_pretrained(
                 base_name_abs,
-                trust_remote_code=True,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                device_map="auto" if self.device == "cuda" else None,
-                local_files_only=os.path.exists(base_name_abs) if os.path.isabs(base_name_abs) or os.path.exists(base_name_abs) else False,  # 如果是本地路径则强制本地加载
+                **model_kwargs
             )
 
             # 如果存在 PEFT 适配权重则尝试加载
