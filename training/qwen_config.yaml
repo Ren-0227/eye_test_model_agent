@@ -1,0 +1,51 @@
+# 千问模型微调配置文件
+
+# 模型配置
+model:
+  name: "Qwen/Qwen2-7B-Instruct"  # 可选: Qwen2-1.5B-Instruct, Qwen2-7B-Instruct, Qwen2-14B-Instruct
+  cache_dir: "./model_cache"
+  output_dir: "./qwen_finetuned_model"
+
+# LoRA 配置
+lora:
+  enabled: true
+  r: 16                    # LoRA rank，越大参数量越多，效果可能更好但显存占用更大
+  alpha: 32               # LoRA alpha，通常设为 r 的 2 倍
+  dropout: 0.05           # LoRA dropout
+  target_modules:         # 目标模块（Qwen2 的注意力层）
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+
+# 量化配置（QLoRA）
+quantization:
+  use_4bit: true          # 使用 4-bit 量化以节省显存
+  bnb_4bit_compute_dtype: "float16"  # 计算数据类型
+  bnb_4bit_quant_type: "nf4"         # 量化类型
+  use_nested_quant: false
+
+# 训练配置
+training:
+  num_epochs: 3
+  batch_size: 4           # 根据显存调整，显存不足可减小
+  gradient_accumulation_steps: 4  # 梯度累积步数，等效 batch_size = batch_size * gradient_accumulation_steps
+  learning_rate: 2e-4
+  warmup_steps: 100
+  max_length: 2048        # 最大序列长度
+  save_steps: 500
+  eval_steps: 500
+  logging_steps: 100
+  save_total_limit: 3     # 最多保存的检查点数量
+
+# 数据配置
+data:
+  train_data_path: "./data/train_data.jsonl"
+  eval_data_path: "./data/eval_data.jsonl"
+  
+# 硬件配置建议
+# - Qwen2-1.5B: 至少 8GB 显存
+# - Qwen2-7B (4-bit): 至少 12GB 显存
+# - Qwen2-7B (全精度): 至少 16GB 显存
+# - Qwen2-14B (4-bit): 至少 20GB 显存
+
