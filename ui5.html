@@ -679,8 +679,18 @@
                     return `错误：${result.message || '服务器连接失败，请稍后重试。'}`;
                 }
                 
-                // 后端返回 structured response: {status, answer, action, data: {risk_level, followups, ...}}
-                let answer = result.answer || result.message || result.error;
+                // 后端返回 structured response: {status, answer, message, action, data: {risk_level, followups, ...}}
+                // 统一格式处理：优先使用 answer，其次 message，最后 error
+                let answer = '';
+                if (result.answer) {
+                    answer = result.answer;
+                } else if (result.message) {
+                    answer = result.message;
+                } else if (result.error) {
+                    answer = result.error;
+                } else {
+                    answer = '暂时无法获取回复，请检查后端服务状态。';
+                }
                 
                 if (!answer) {
                     console.warn('[Frontend] No answer in response, result:', result);
@@ -1062,20 +1072,65 @@
 	    }
 	};
 	
-	// 页面交互逻辑
-	document.addEventListener('DOMContentLoaded', () => {
-	    // 确保后端集成已完成
-	    if (!window.backendAPI) {
-	        console.error('Backend API not initialized!');
-	        return;
+	    // 诊断函数：测试消息显示功能
+	    function testMessageDisplay() {
+	        console.log('[Frontend] Testing message display functionality...');
+	        
+	        // 检查关键元素
+	        const chatContainer = document.getElementById('chat-messages-container');
+	        const aiDoctorModule = document.getElementById('ai-doctor');
+	        const aiDoctorTab = document.querySelector('[data-tab="ai-doctor"]');
+	        
+	        console.log('[Frontend] Chat container:', chatContainer ? 'Found' : 'NOT FOUND');
+	        console.log('[Frontend] AI doctor module:', aiDoctorModule ? 'Found' : 'NOT FOUND');
+	        console.log('[Frontend] AI doctor tab:', aiDoctorTab ? 'Found' : 'NOT FOUND');
+	        
+	        if (chatContainer) {
+	            console.log('[Frontend] Chat container classes:', chatContainer.className);
+	            console.log('[Frontend] Chat container parent:', chatContainer.parentElement ? chatContainer.parentElement.id : 'No parent');
+	        }
+	        
+	        if (aiDoctorModule) {
+	            console.log('[Frontend] AI doctor module active:', aiDoctorModule.classList.contains('active'));
+	            console.log('[Frontend] AI doctor module classes:', aiDoctorModule.className);
+	        }
+	        
+	        // 测试添加消息
+	        if (chatContainer && aiDoctorModule) {
+	            try {
+	                const testMsg = document.createElement('div');
+	                testMsg.style.cssText = 'padding: 5px; background: yellow; margin: 5px 0;';
+	                testMsg.textContent = '[测试消息] 如果您看到这条消息，说明消息显示功能正常';
+	                chatContainer.appendChild(testMsg);
+	                console.log('[Frontend] Test message added successfully');
+	                setTimeout(() => testMsg.remove(), 3000);
+	            } catch (e) {
+	                console.error('[Frontend] Failed to add test message:', e);
+	            }
+	        } else {
+	            console.error('[Frontend] Cannot test message display: missing required elements');
+	        }
 	    }
 	    
-	    if (!window.aiDoctorAPI || typeof window.aiDoctorAPI.sendMessage !== 'function') {
-	        console.error('aiDoctorAPI.sendMessage not available!');
-	        return;
-	    }
-	    
-	    console.log('Backend integration ready, initializing page...');
+	    // 页面交互逻辑
+	    document.addEventListener('DOMContentLoaded', () => {
+	        // 确保后端集成已完成
+	        if (!window.backendAPI) {
+	            console.error('Backend API not initialized!');
+	            return;
+	        }
+	        
+	        if (!window.aiDoctorAPI || typeof window.aiDoctorAPI.sendMessage !== 'function') {
+	            console.error('aiDoctorAPI.sendMessage not available!');
+	            return;
+	        }
+	        
+	        console.log('Backend integration ready, initializing page...');
+	        
+	        // 运行诊断测试
+	        setTimeout(() => {
+	            testMessageDisplay();
+	        }, 500);
 	    
 	    // 加载视力检测历史
 	    loadVisionHistory();
@@ -1215,6 +1270,16 @@
 	            return;
 	        }
 	        
+	        // 确保切换到AI医生模块
+	        const aiDoctorTab = document.querySelector('[data-tab="ai-doctor"]');
+	        const aiDoctorModule = document.getElementById('ai-doctor');
+	        if (aiDoctorTab && aiDoctorModule && !aiDoctorModule.classList.contains('active')) {
+	            console.log('[Frontend] Switching to AI doctor module');
+	            aiDoctorTab.click();
+	            // 等待模块切换完成
+	            await new Promise(resolve => setTimeout(resolve, 100));
+	        }
+	        
 	        // 显示用户消息
 	        if (message) {
 	            addMessageToChat(message, true);
@@ -1251,10 +1316,47 @@
 	                body: formData
 	            });
 	            
-	            const result = await response.json();
+	            // 检查响应状态
+	            if (!response.ok) {
+	                const errorText = await response.text().catch(() => '未知错误');
+	                throw new Error(`HTTP ${response.status}: ${response.statusText}\n响应内容: ${errorText}`);
+	            }
 	            
-	            // 处理响应
-	            let answer = result.answer || result.message || result.error || '暂时无法获取回复';
+	            // 安全解析JSON
+	            let result;
+	            try {
+	                const responseText = await response.text();
+	                console.log('[Frontend] Raw response text:', responseText.substring(0, 500));
+	                result = JSON.parse(responseText);
+	            } catch (parseError) {
+	                console.error('[Frontend] JSON解析失败:', parseError);
+	                console.error('[Frontend] 响应内容:', await response.text().catch(() => '无法读取'));
+	                throw new Error(`响应格式错误: ${parseError.message}`);
+	            }
+	            
+	            // 调试：打印响应内容
+	            console.log('[Frontend] Chat response:', result);
+	            console.log('[Frontend] Response status:', result.status);
+	            console.log('[Frontend] Response answer:', result.answer);
+	            console.log('[Frontend] Response message:', result.message);
+	            
+	            // 处理响应 - 统一格式：优先使用 answer，其次 message，最后 error
+            let answer = '';
+            if (result.answer) {
+                answer = result.answer;
+            } else if (result.message) {
+                answer = result.message;
+            } else if (result.error) {
+                answer = result.error;
+            } else {
+                answer = '暂时无法获取回复，请稍后重试。';
+            }
+            
+            console.log('[Frontend] Extracted answer:', answer.substring(0, 100));
+	            
+	            // 调试：打印最终答案
+	            console.log('[Frontend] Final answer:', answer);
+	            console.log('[Frontend] Full result object:', JSON.stringify(result, null, 2));
 	            
 	            // 如需视力检测则主动触发
 	            if (result.action === 'vision_test') {
@@ -1283,7 +1385,61 @@
 	            
 	            // 显示AI回复
 	            removeLoadingIndicator();
-	            addMessageToChat(answer, false);
+	            
+	            // 调试：确认答案内容
+	            console.log('[Frontend] About to display answer, length:', answer ? answer.length : 0);
+	            console.log('[Frontend] Answer content:', answer);
+	            console.log('[Frontend] Result object keys:', Object.keys(result));
+	            
+	            // 确保答案不为空
+	            if (!answer || answer.trim() === '') {
+	                console.warn('[Frontend] Answer is empty, using fallback message');
+	                console.warn('[Frontend] Full result for debugging:', JSON.stringify(result, null, 2));
+	                answer = '抱歉，暂时无法获取回复。请检查后端服务状态。';
+	            }
+	            
+	            // 确保AI医生模块是激活的
+	            const aiDoctorModule = document.getElementById('ai-doctor');
+	            if (aiDoctorModule && !aiDoctorModule.classList.contains('active')) {
+	                console.log('[Frontend] Activating AI doctor module');
+	                const aiDoctorTab = document.querySelector('[data-tab="ai-doctor"]');
+	                if (aiDoctorTab) {
+	                    aiDoctorTab.click();
+	                    await new Promise(resolve => setTimeout(resolve, 100));
+	                }
+	            }
+	            
+	            // 尝试显示消息
+	            try {
+	                console.log('[Frontend] Calling addMessageToChat with answer length:', answer.length);
+	                addMessageToChat(answer, false);
+	                console.log('[Frontend] Message added successfully');
+	                
+	                // 确保滚动到底部
+	                const chatContainer = document.getElementById('chat-messages-container');
+	                if (chatContainer) {
+	                    setTimeout(() => {
+	                        chatContainer.scrollTop = chatContainer.scrollHeight;
+	                        console.log('[Frontend] Scrolled to bottom');
+	                    }, 100);
+	                }
+	            } catch (e) {
+	                console.error('[Frontend] Failed to add message:', e);
+	                console.error('[Frontend] Error stack:', e.stack);
+	                // 即使出错也尝试显示
+	                const chatContainer = document.getElementById('chat-messages-container');
+	                if (chatContainer) {
+	                    const errorDiv = document.createElement('div');
+	                    errorDiv.style.cssText = 'padding: 10px; background: #f0f0f0; margin: 10px 0; border-radius: 5px;';
+	                    errorDiv.textContent = answer;
+	                    chatContainer.appendChild(errorDiv);
+	                    chatContainer.scrollTop = chatContainer.scrollHeight;
+	                    console.log('[Frontend] Message added via fallback method');
+	                } else {
+	                    console.error('[Frontend] Chat container not found even in fallback');
+	                    alert('无法显示消息，请刷新页面重试。\n答案内容：' + answer.substring(0, 100));
+	                }
+	            }
 	            
 	            // 清除图片
 	            if (selectedImageFile) {
@@ -1294,8 +1450,29 @@
 	            }
 	        } catch (e) {
 	            console.error('发送消息失败', e);
+	            console.error('错误详情:', e.message, e.stack);
 	            removeLoadingIndicator();
-	            addMessageToChat('发送失败，请重试。', false);
+	            
+	            // 确保AI医生模块是激活的
+	            const aiDoctorModule = document.getElementById('ai-doctor');
+	            if (aiDoctorModule && !aiDoctorModule.classList.contains('active')) {
+	                const aiDoctorTab = document.querySelector('[data-tab="ai-doctor"]');
+	                if (aiDoctorTab) {
+	                    aiDoctorTab.click();
+	                    await new Promise(resolve => setTimeout(resolve, 100));
+	                }
+	            }
+	            
+	            const errorMsg = `发送失败：${e.message || '未知错误'}。请检查后端服务状态或查看浏览器控制台（F12）。`;
+	            
+	            // 尝试显示错误消息
+	            try {
+	                addMessageToChat(errorMsg, false);
+	            } catch (displayError) {
+	                console.error('[Frontend] 无法显示错误消息:', displayError);
+	                // 最后的fallback：使用alert
+	                alert('无法显示消息。错误：' + errorMsg + '\n\n请打开浏览器控制台（F12）查看详细信息。');
+	            }
 	        }
 	    }
 	    
@@ -1327,6 +1504,15 @@
 	            const question = btn.getAttribute('data-question');
 	            if (!question) return;
 	            
+	            // 确保切换到AI医生模块
+	            const aiDoctorTab = document.querySelector('[data-tab="ai-doctor"]');
+	            const aiDoctorModule = document.getElementById('ai-doctor');
+	            if (aiDoctorTab && aiDoctorModule && !aiDoctorModule.classList.contains('active')) {
+	                console.log('[Frontend] Switching to AI doctor module for quick question');
+	                aiDoctorTab.click();
+	                await new Promise(resolve => setTimeout(resolve, 100));
+	            }
+	            
 	            // 添加用户消息
 	            addMessageToChat(question, true);
 	            
@@ -1338,8 +1524,17 @@
 	                const result = await window.backendAPI.chat(question);
 	                removeLoadingIndicator();
 	                
-	                // 处理响应
-	                let answer = result.answer || result.message || '暂时无法获取回复';
+	                // 处理响应 - 统一格式处理
+	                let answer = '';
+	                if (result.answer) {
+	                    answer = result.answer;
+	                } else if (result.message) {
+	                    answer = result.message;
+	                } else if (result.error) {
+	                    answer = result.error;
+	                } else {
+	                    answer = '暂时无法获取回复，请稍后重试。';
+	                }
 	                
 	                // 添加风险提示和追问建议
 	                const data = result.data || {};
@@ -1352,6 +1547,16 @@
 	                }
 	                if (data.followups && Array.isArray(data.followups) && data.followups.length > 0) {
 	                    answer += `\n\n[建议进一步了解] ${data.followups.join('、')}`;
+	                }
+	                
+	                // 确保AI医生模块是激活的
+	                const aiDoctorModule = document.getElementById('ai-doctor');
+	                if (aiDoctorModule && !aiDoctorModule.classList.contains('active')) {
+	                    const aiDoctorTab = document.querySelector('[data-tab="ai-doctor"]');
+	                    if (aiDoctorTab) {
+	                        aiDoctorTab.click();
+	                        await new Promise(resolve => setTimeout(resolve, 100));
+	                    }
 	                }
 	                
 	                // 显示AI回复
@@ -1379,19 +1584,86 @@
 	                }
 	            } catch (e) {
 	                console.error('发送消息失败', e);
+	                console.error('错误详情:', e.message, e.stack);
 	                removeLoadingIndicator();
-	                addMessageToChat('发送失败，请重试。', false);
+	                
+	                // 确保AI医生模块是激活的
+	                const aiDoctorModule = document.getElementById('ai-doctor');
+	                if (aiDoctorModule && !aiDoctorModule.classList.contains('active')) {
+	                    const aiDoctorTab = document.querySelector('[data-tab="ai-doctor"]');
+	                    if (aiDoctorTab) {
+	                        aiDoctorTab.click();
+	                        await new Promise(resolve => setTimeout(resolve, 100));
+	                    }
+	                }
+	                
+	                const errorMsg = `发送失败：${e.message || '未知错误'}。请检查后端服务状态。`;
+	                try {
+	                    addMessageToChat(errorMsg, false);
+	                } catch (displayError) {
+	                    console.error('[Frontend] 无法显示错误消息:', displayError);
+	                    alert('无法显示消息。错误：' + errorMsg);
+	                }
 	            }
 	        });
 	    });
 	    
 	    // 聊天界面辅助函数
 	    function addMessageToChat(content, isUser) {
-	        const chatContainer = document.getElementById('chat-messages-container');
-	        if (!chatContainer) {
-	            console.warn('Chat container not found');
+	        console.log('[Frontend] addMessageToChat called, isUser:', isUser, 'content length:', content ? content.length : 0);
+	        
+	        if (!content) {
+	            console.warn('[Frontend] Null or undefined content, skipping message');
 	            return;
 	        }
+	        
+	        // 转换为字符串，确保内容有效
+	        content = String(content);
+	        
+	        if (content.trim() === '') {
+	            console.warn('[Frontend] Empty content after trim, skipping message');
+	            return;
+	        }
+	        
+	        // 确保AI医生模块是激活的
+	        const aiDoctorModule = document.getElementById('ai-doctor');
+	        if (aiDoctorModule && !aiDoctorModule.classList.contains('active')) {
+	            console.log('[Frontend] AI doctor module not active, activating it');
+	            const aiDoctorTab = document.querySelector('[data-tab="ai-doctor"]');
+	            if (aiDoctorTab) {
+	                aiDoctorTab.click();
+	            }
+	        }
+	        
+	        const chatContainer = document.getElementById('chat-messages-container');
+	        if (!chatContainer) {
+	            console.error('[Frontend] Chat container not found! Looking for: chat-messages-container');
+	            // 尝试查找其他可能的容器
+	            const altContainers = document.querySelectorAll('[id*="chat"], [id*="message"]');
+	            console.log('[Frontend] Alternative containers found:', altContainers);
+	            // 尝试等待DOM加载
+	            setTimeout(() => {
+	                const retryContainer = document.getElementById('chat-messages-container');
+	                if (retryContainer) {
+	                    console.log('[Frontend] Chat container found on retry, adding message');
+	                    addMessageToChat(content, isUser);
+	                } else {
+	                    console.error('[Frontend] Chat container still not found after retry');
+	                    // 尝试直接显示在页面上
+	                    const body = document.body;
+	                    if (body) {
+	                        const errorDiv = document.createElement('div');
+	                        errorDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 2px solid red; z-index: 10000; max-width: 80%;';
+	                        errorDiv.innerHTML = '<h3>消息显示错误</h3><p>无法找到聊天容器，但消息内容如下：</p><pre>' + escapeHtml(content) + '</pre>';
+	                        body.appendChild(errorDiv);
+	                        setTimeout(() => errorDiv.remove(), 5000);
+	                    }
+	                }
+	            }, 100);
+	            return;
+	        }
+	        
+	        console.log('[Frontend] Chat container found, adding message');
 	        
 	        const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 	        
@@ -1419,8 +1691,46 @@
 	            `;
 	        }
 	        
-	        chatContainer.insertAdjacentHTML('beforeend', messageHtml);
-	        chatContainer.scrollTop = chatContainer.scrollHeight;
+	        try {
+	        try {
+	            chatContainer.insertAdjacentHTML('beforeend', messageHtml);
+	            console.log('[Frontend] Message HTML inserted successfully');
+	            
+	            // 确保滚动到底部
+	            setTimeout(() => {
+	                const scrollHeight = chatContainer.scrollHeight;
+	                chatContainer.scrollTop = scrollHeight;
+	                console.log('[Frontend] Scrolled chat container to bottom, scrollTop:', chatContainer.scrollTop, 'scrollHeight:', scrollHeight);
+	                
+	                // 验证消息是否真的添加了
+	                const lastMessage = chatContainer.lastElementChild;
+	                if (lastMessage) {
+	                    console.log('[Frontend] Last message element found:', lastMessage.tagName, lastMessage.className);
+	                } else {
+	                    console.warn('[Frontend] Warning: No last message element found after insertion');
+	                }
+	            }, 50);
+	        } catch (insertError) {
+	            console.error('[Frontend] Failed to insert message HTML:', insertError);
+	            // Fallback: 使用appendChild
+	            try {
+	                const tempDiv = document.createElement('div');
+	                tempDiv.innerHTML = messageHtml;
+	                while (tempDiv.firstChild) {
+	                    chatContainer.appendChild(tempDiv.firstChild);
+	                }
+	                console.log('[Frontend] Message added via appendChild fallback');
+	            } catch (fallbackError) {
+	                console.error('[Frontend] Fallback method also failed:', fallbackError);
+	                throw fallbackError;
+	            }
+	        }
+	            console.log('[Frontend] Message HTML inserted successfully');
+	        } catch (e) {
+	            console.error('[Frontend] Failed to insert message HTML:', e);
+	            console.error('[Frontend] Message HTML preview:', messageHtml.substring(0, 200));
+	            throw e;
+	        }
 	    }
 	    
 	    // HTML转义函数
