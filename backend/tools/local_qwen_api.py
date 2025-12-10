@@ -78,48 +78,82 @@ class LocalQwenAPI:
     def _auto_pick_model_path(self) -> Optional[str]:
         """自动选择模型路径，优先选择微调模型"""
         for path in DEFAULT_MODEL_CANDIDATES:
-            # 转换为绝对路径
-            abs_path = os.path.abspath(os.path.normpath(path)) if os.path.exists(path) else path
-            if os.path.isdir(abs_path):
-                # 检查是否是微调模型（有adapter_config.json）
-                adapter_config = os.path.join(abs_path, "adapter_config.json")
-                if os.path.exists(adapter_config):
-                    print(f"[model] 检测到微调模型: {abs_path}")
-                    # 微调模型需要基础模型，检查基础模型是否存在
-                    # 如果微调模型目录本身有config.json，说明是完整模型
-                    if os.path.exists(os.path.join(abs_path, "config.json")):
-                        if self._has_weights(abs_path):
-                            print(f"[model] 选择微调模型（完整）: {abs_path}")
-                            return abs_path
-                    # 否则需要基础模型，返回微调模型路径（基础模型会在加载时自动选择）
-                    if self._has_weights(abs_path) or os.path.exists(adapter_config):
-                        print(f"[model] 选择微调模型（LoRA）: {abs_path}")
+            # 转换为绝对路径（无论路径是否存在都转换）
+            try:
+                # 先尝试转换为绝对路径
+                if os.path.isabs(path):
+                    abs_path = os.path.normpath(path)
+                else:
+                    abs_path = os.path.abspath(os.path.normpath(path))
+            except Exception:
+                abs_path = path
+            
+            # 检查路径是否存在且是目录
+            if not os.path.exists(abs_path) or not os.path.isdir(abs_path):
+                continue
+                
+            # 确保是绝对路径
+            abs_path = os.path.abspath(os.path.normpath(abs_path))
+            
+            # 检查是否是微调模型（有adapter_config.json）
+            adapter_config = os.path.join(abs_path, "adapter_config.json")
+            adapter_model = os.path.join(abs_path, "adapter_model.safetensors")
+            has_adapter_config = os.path.exists(adapter_config)
+            has_adapter_model = os.path.exists(adapter_model)
+            
+            if has_adapter_config:
+                print(f"[model] 检测到微调模型: {abs_path}")
+                # 微调模型需要基础模型，检查基础模型是否存在
+                # 如果微调模型目录本身有config.json，说明是完整模型
+                config_json = os.path.join(abs_path, "config.json")
+                if os.path.exists(config_json):
+                    if self._has_weights(abs_path):
+                        print(f"[model] 选择微调模型（完整）: {abs_path}")
                         return abs_path
-                # 检查是否有完整权重文件
-                elif self._has_weights(abs_path):
-                    print(f"[model] 选择基础模型: {abs_path}")
+                # LoRA模型：只要有adapter_config.json和adapter_model.safetensors即可
+                if has_adapter_model or has_adapter_config:
+                    print(f"[model] 选择微调模型（LoRA）: {abs_path}")
                     return abs_path
+            # 检查是否有完整权重文件
+            elif self._has_weights(abs_path):
+                print(f"[model] 选择基础模型: {abs_path}")
+                return abs_path
         print(f"[model] 未找到可用模型，候选路径: {DEFAULT_MODEL_CANDIDATES}")
         return None
 
     @staticmethod
     def _has_weights(path: str) -> bool:
-        # 检查是否存在至少一个权重分片
-        if not os.path.exists(path):
+        """检查路径是否包含模型权重文件（使用绝对路径）"""
+        # 转换为绝对路径
+        try:
+            if not os.path.isabs(path):
+                abs_path = os.path.abspath(os.path.normpath(path))
+            else:
+                abs_path = os.path.normpath(path)
+        except Exception:
+            abs_path = path
+        
+        # 检查路径是否存在
+        if not os.path.exists(abs_path) or not os.path.isdir(abs_path):
             return False
+        
+        # 确保是绝对路径
+        abs_path = os.path.abspath(os.path.normpath(abs_path))
             
-        # 检查 safetensors 格式权重
-        safetensors_parts = glob.glob(os.path.join(path, "model*.safetensors"))
+        # 检查 safetensors 格式权重（使用绝对路径）
+        safetensors_pattern = os.path.join(abs_path, "model*.safetensors")
+        safetensors_parts = glob.glob(safetensors_pattern)
         if len(safetensors_parts) > 0:
             return True
             
-        # 检查 pytorch 格式权重
-        pytorch_parts = glob.glob(os.path.join(path, "pytorch_model*.bin"))
+        # 检查 pytorch 格式权重（使用绝对路径）
+        pytorch_pattern = os.path.join(abs_path, "pytorch_model*.bin")
+        pytorch_parts = glob.glob(pytorch_pattern)
         if len(pytorch_parts) > 0:
             return True
             
-        # 检查单个文件权重
-        single_pytorch = os.path.join(path, "pytorch_model.bin")
+        # 检查单个文件权重（使用绝对路径）
+        single_pytorch = os.path.join(abs_path, "pytorch_model.bin")
         if os.path.exists(single_pytorch):
             return True
             
@@ -134,13 +168,28 @@ class LocalQwenAPI:
             return
             
         # 转换为绝对路径，避免Windows相对路径问题
-        model_path_abs = os.path.abspath(os.path.normpath(self.model_path))
+        try:
+            if os.path.isabs(self.model_path):
+                model_path_abs = os.path.normpath(self.model_path)
+            else:
+                model_path_abs = os.path.abspath(os.path.normpath(self.model_path))
+            # 确保是绝对路径
+            model_path_abs = os.path.abspath(os.path.normpath(model_path_abs))
+        except Exception as e:
+            self.load_error = f"路径转换失败: {str(e)}"
+            print(f"模型路径转换失败: {self.load_error}")
+            return
         
         if not os.path.exists(model_path_abs):
             self.load_error = f"本地模型未就绪：路径不存在: {model_path_abs}"
             return
             
-        if not self._has_weights(model_path_abs):
+        # 检查LoRA适配器模型（有adapter_model.safetensors也算有效）
+        adapter_config_path = os.path.join(model_path_abs, "adapter_config.json")
+        adapter_model_path = os.path.join(model_path_abs, "adapter_model.safetensors")
+        has_adapter = os.path.exists(adapter_config_path) and os.path.exists(adapter_model_path)
+        
+        if not self._has_weights(model_path_abs) and not has_adapter:
             self.load_error = (
                 f"本地模型未就绪：在路径 {model_path_abs} 中未找到权重文件。"
                 f"请将模型权重放到该路径（需要 model-*.safetensors 或 pytorch_model*.bin 和 tokenizer 文件），"
@@ -195,42 +244,60 @@ class LocalQwenAPI:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
                 self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
 
-            # 确定基础模型名称
+            # 确定基础模型名称（所有路径都转换为绝对路径）
             base_name = self.base_model_name
-            adapter_config_path = os.path.join(model_path_abs, "adapter_config.json")
-            is_lora_model = os.path.exists(adapter_config_path)
+            adapter_config_path_abs = os.path.join(model_path_abs, "adapter_config.json")
+            is_lora_model = os.path.exists(adapter_config_path_abs)
             
             # 如果本地目录就是基座权重，则直接加载
-            if self._has_weights(model_path_abs) and os.path.exists(
-                os.path.join(model_path_abs, "config.json")
-            ):
+            config_json_abs = os.path.join(model_path_abs, "config.json")
+            if self._has_weights(model_path_abs) and os.path.exists(config_json_abs):
                 base_name = model_path_abs
                 print(f"[model] 使用完整模型路径: {base_name}")
             elif is_lora_model:
                 # LoRA模型需要加载基础模型，然后加载适配器
                 print(f"[model] 检测到LoRA适配器，将加载基础模型: {self.base_model_name}")
-                # 检查基础模型是否存在本地
+                # 检查基础模型是否存在本地（所有路径都转换为绝对路径）
                 base_candidates = [
                     "./Qwen-1_8B-Chat",
                     "./Qwen1.8B-Chat",
                     os.path.expanduser("~/.cache/modelscope/hub/models/qwen/Qwen-1_8B-Chat"),
                 ]
                 for candidate in base_candidates:
-                    if os.path.exists(candidate) and self._has_weights(candidate):
-                        base_name = os.path.abspath(os.path.normpath(candidate))
-                        print(f"[model] 找到本地基础模型: {base_name}")
-                        break
+                    try:
+                        # 转换为绝对路径
+                        if os.path.isabs(candidate):
+                            candidate_abs = os.path.normpath(candidate)
+                        else:
+                            candidate_abs = os.path.abspath(os.path.normpath(candidate))
+                        candidate_abs = os.path.abspath(os.path.normpath(candidate_abs))
+                        
+                        if os.path.exists(candidate_abs) and self._has_weights(candidate_abs):
+                            base_name = candidate_abs
+                            print(f"[model] 找到本地基础模型: {base_name}")
+                            break
+                    except Exception as e:
+                        print(f"[model] 检查基础模型路径失败 {candidate}: {e}")
+                        continue
                 # 如果没找到本地基础模型，使用HuggingFace名称（需要网络下载）
                 if base_name == self.base_model_name:
                     print(f"[model] 未找到本地基础模型，将尝试从HuggingFace加载: {base_name}")
 
             print(f"正在加载基础模型: {base_name}")
             
-            # 确保base_name也是绝对路径
-            if os.path.isabs(base_name) or os.path.exists(base_name):
-                base_name_abs = os.path.abspath(os.path.normpath(base_name))
-            else:
-                base_name_abs = base_name  # 如果是HuggingFace模型名称，保持原样
+            # 确保base_name也是绝对路径（如果是本地路径）
+            try:
+                if os.path.isabs(base_name):
+                    base_name_abs = os.path.normpath(base_name)
+                    if os.path.exists(base_name_abs):
+                        base_name_abs = os.path.abspath(os.path.normpath(base_name_abs))
+                elif os.path.exists(base_name):
+                    base_name_abs = os.path.abspath(os.path.normpath(base_name))
+                else:
+                    base_name_abs = base_name  # 如果是HuggingFace模型名称，保持原样
+            except Exception as e:
+                print(f"[model] 基础模型路径转换失败: {e}")
+                base_name_abs = base_name
             
             # 加载模型，在Windows上使用特殊配置
             model_kwargs = {
