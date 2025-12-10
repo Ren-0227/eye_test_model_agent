@@ -3,413 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>眼部医疗AI智能助手</title>
+    <title>视力健康助手 · 眼科多模态AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            width: 100%;
-            max-width: 1200px;
-            height: 90vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            font-size: 24px;
-            font-weight: 600;
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #4ade80;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .main-content {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-        }
-
-        .chat-section {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            border-right: 1px solid #e5e7eb;
-        }
-
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            background: #f9fafb;
-        }
-
-        .message {
-            margin-bottom: 20px;
-            display: flex;
-            animation: fadeIn 0.3s;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message.user {
-            justify-content: flex-end;
-        }
-
-        .message-content {
-            max-width: 70%;
-            padding: 12px 16px;
-            border-radius: 18px;
-            word-wrap: break-word;
-        }
-
-        .message.user .message-content {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .message.assistant .message-content {
-            background: white;
-            color: #1f2937;
-            border: 1px solid #e5e7eb;
-        }
-
-        .risk-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-top: 8px;
-        }
-
-        .risk-high {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .risk-medium {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .risk-low {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .followups {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #e5e7eb;
-        }
-
-        .followup-item {
-            display: inline-block;
-            margin: 4px 8px 4px 0;
-            padding: 6px 12px;
-            background: #eff6ff;
-            color: #1e40af;
-            border-radius: 12px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .followup-item:hover {
-            background: #dbeafe;
-            transform: translateY(-1px);
-        }
-
-        .chat-input-area {
-            padding: 20px;
-            background: white;
-            border-top: 1px solid #e5e7eb;
-        }
-
-        .input-group {
-            display: flex;
-            gap: 10px;
-            align-items: flex-end;
-        }
-
-        .input-wrapper {
-            flex: 1;
-            position: relative;
-        }
-
-        textarea {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            font-size: 14px;
-            resize: none;
-            font-family: inherit;
-            transition: border-color 0.2s;
-        }
-
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: #f3f4f6;
-            color: #374151;
-        }
-
-        .btn-secondary:hover {
-            background: #e5e7eb;
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .file-input-wrapper {
-            position: relative;
-            overflow: hidden;
-            display: inline-block;
-        }
-
-        .file-input-wrapper input[type=file] {
-            position: absolute;
-            left: -9999px;
-        }
-
-        .sidebar {
-            width: 300px;
-            background: #f9fafb;
-            padding: 20px;
-            overflow-y: auto;
-        }
-
-        .sidebar-section {
-            margin-bottom: 30px;
-        }
-
-        .sidebar-section h3 {
-            font-size: 16px;
-            color: #374151;
-            margin-bottom: 12px;
-            font-weight: 600;
-        }
-
-        .info-card {
-            background: white;
-            padding: 16px;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            border: 1px solid #e5e7eb;
-        }
-
-        .info-card h4 {
-            font-size: 14px;
-            color: #6b7280;
-            margin-bottom: 8px;
-        }
-
-        .info-card p {
-            font-size: 18px;
-            color: #1f2937;
-            font-weight: 600;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .error-message {
-            background: #fee2e2;
-            color: #991b1b;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-            font-size: 14px;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6b7280;
-        }
-
-        .empty-state svg {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-
-        @media (max-width: 768px) {
-            .main-content {
-                flex-direction: column;
-            }
-
-            .sidebar {
-                width: 100%;
-                max-height: 200px;
-            }
-
-            .message-content {
-                max-width: 85%;
-            }
-        }
+        body { background: #f6f7fb; }
+        .card-shadow { box-shadow: 0 8px 30px rgba(0,0,0,0.06); }
+        .glass { background: rgba(255,255,255,0.85); backdrop-filter: blur(10px); }
+        .tab-active { color: #2563eb !important; border-bottom: 2px solid #2563eb; }
+        .bubble { animation: fadeIn 0.25s ease; }
+        @keyframes fadeIn { from {opacity:0;transform:translateY(6px);} to {opacity:1;transform:translateY(0);} }
+        .chip { padding: 6px 12px; border-radius: 999px; font-size: 12px; cursor: pointer; transition: all .2s; }
+        .chip:hover { transform: translateY(-1px); }
+        .gradient-blue { background: linear-gradient(135deg,#3498DB,#2980B9); }
+        .gradient-green { background: linear-gradient(135deg,#2ECC71,#27AE60); }
+        .gradient-purple { background: linear-gradient(135deg,#9B59B6,#8E44AD); }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>👁️ 眼部医疗AI智能助手</h1>
-            <div class="status-indicator">
-                <span class="status-dot"></span>
+<body class="font-sans text-slate-800">
+    <div class="max-w-6xl mx-auto p-4 md:p-6">
+        <!-- 顶部状态栏 -->
+        <div class="glass card-shadow rounded-2xl p-4 mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl gradient-blue text-white flex items-center justify-center text-xl font-semibold">
+                    👁️
+                </div>
+                <div>
+                    <div class="text-lg font-semibold">视力健康助手 · 眼科多模态AI</div>
+                    <div class="text-sm text-slate-500" id="statusSub">智能对话 / 视力检测 / OCT影像 / 风险评估</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 text-sm">
+                <span class="w-3 h-3 rounded-full bg-emerald-500" id="statusDot"></span>
                 <span id="statusText">服务正常</span>
             </div>
         </div>
 
-        <div class="main-content">
-            <div class="chat-section">
-                <div class="chat-messages" id="chatMessages">
-                    <div class="empty-state">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                        </svg>
-                        <p>欢迎使用眼部医疗AI智能助手</p>
-                        <p style="font-size: 14px; margin-top: 8px;">请描述您的眼部症状，或上传眼部图片进行分析</p>
+        <!-- 主体布局 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- 左侧：模块切换 + 内容 -->
+            <div class="lg:col-span-2">
+                <div class="glass card-shadow rounded-2xl overflow-hidden">
+                    <!-- Tabs -->
+                    <div class="grid grid-cols-4 text-center text-sm border-b border-slate-100">
+                        <button class="py-3 tab-active" data-tab="tab-vision" onclick="switchTab('tab-vision')">测视力</button>
+                        <button class="py-3" data-tab="tab-chat" onclick="switchTab('tab-chat')">AI医生</button>
+                        <button class="py-3" data-tab="tab-disease" onclick="switchTab('tab-disease')">疾病诊断</button>
+                        <button class="py-3" data-tab="tab-profile" onclick="switchTab('tab-profile')">个人中心</button>
                     </div>
-                </div>
 
-                <div class="chat-input-area">
-                    <div class="action-buttons" style="margin-bottom: 10px;">
-                        <button class="btn btn-secondary" onclick="startVisionTest()">
-                            🔍 开始视力检测
-                        </button>
-                        <div class="file-input-wrapper">
-                            <input type="file" id="imageInput" accept="image/*" onchange="handleImageUpload(event)">
-                            <button class="btn btn-secondary" onclick="document.getElementById('imageInput').click()">
-                                📷 上传图片
-                            </button>
+                    <!-- Tab: 视力检测 -->
+                    <div id="tab-vision" class="p-4 md:p-6 space-y-4 tab-panel">
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <div class="flex-1 glass rounded-xl p-4 border border-slate-100">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div>
+                                        <div class="text-sm text-slate-500">上次检测</div>
+                                        <div class="text-lg font-semibold" id="visionSummary">--</div>
+                                    </div>
+                                    <button class="gradient-blue text-white px-4 py-2 rounded-lg text-sm shadow" onclick="startVisionTest()">
+                                        <i class="fa fa-play mr-1"></i> 开始检测
+                                    </button>
+                                </div>
+                                <div class="text-xs text-slate-500" id="visionHint">需要摄像头权限，检测时保持60cm距离</div>
+                            </div>
+                            <div class="glass rounded-xl p-4 border border-slate-100 w-full md:w-52">
+                                <div class="text-sm text-slate-500 mb-2">上传OCT图像</div>
+                                <input type="file" id="imageInput" class="hidden" accept="image/*" onchange="handleImageUpload(event)">
+                                <button class="w-full border border-dashed border-slate-300 rounded-lg py-3 text-slate-600 text-sm hover:border-slate-400" onclick="document.getElementById('imageInput').click()">
+                                    <i class="fa fa-upload mr-1"></i> 选择图片
+                                </button>
+                                <div class="text-xs text-slate-500 mt-2" id="fileNameDisplay">未选择文件</div>
+                            </div>
+                        </div>
+                        <div class="glass rounded-xl p-4 border border-slate-100">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="font-semibold">检测历史（最近）</div>
+                                <button class="text-xs text-blue-600 hover:underline" onclick="loadHealthData()">刷新</button>
+                            </div>
+                            <div class="space-y-2 text-sm" id="visionHistory">
+                                <div class="text-slate-500">暂无数据，完成一次检测后显示</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="input-group">
-                        <div class="input-wrapper">
-                            <textarea id="messageInput" rows="2" placeholder="描述您的眼部症状..." onkeydown="handleKeyDown(event)"></textarea>
+
+                    <!-- Tab: AI医生 -->
+                    <div id="tab-chat" class="p-0 tab-panel hidden">
+                        <div class="h-[640px] flex flex-col">
+                            <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50" id="chatMessages">
+                                <div class="text-center text-slate-400 text-sm mt-6">输入症状，或上传眼部图片，获得诊断建议</div>
+                            </div>
+                            <div class="border-t border-slate-200 p-4 space-y-2">
+                                <div class="flex flex-wrap gap-2" id="actionsRow"></div>
+                                <div class="flex items-center gap-2">
+                                    <div class="flex-1 relative">
+                                        <textarea id="messageInput" rows="2" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="描述您的眼部症状..." onkeydown="handleKeyDown(event)"></textarea>
+                                    </div>
+                                    <button id="sendBtn" class="gradient-blue text-white px-4 py-2 rounded-xl shadow hover:shadow-lg" onclick="sendMessage()">
+                                        发送
+                                    </button>
+                                </div>
+                                <div class="flex flex-wrap gap-2 text-xs text-blue-700">
+                                    <span class="chip bg-blue-50 border border-blue-100" onclick="quickAsk('眼睛干涩该怎么办？')">眼睛干涩</span>
+                                    <span class="chip bg-blue-50 border border-blue-100" onclick="quickAsk('看远处模糊，需要注意什么？')">远处模糊</span>
+                                    <span class="chip bg-blue-50 border border-blue-100" onclick="quickAsk('有飞蚊和闪光，需要就医吗？')">飞蚊/闪光</span>
+                                </div>
+                            </div>
                         </div>
-                        <button class="btn btn-primary" onclick="sendMessage()" id="sendBtn">
-                            发送
-                        </button>
+                    </div>
+
+                    <!-- Tab: 疾病诊断 -->
+                    <div id="tab-disease" class="p-4 md:p-6 space-y-4 tab-panel hidden">
+                        <div class="glass rounded-xl p-4 border border-slate-100">
+                            <div class="flex items-center gap-2">
+                                <input id="diseaseInput" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="输入疾病类型，例如：近视 / AMD / 青光眼">
+                                <button class="gradient-green text-white px-4 py-2 rounded-lg shadow" onclick="queryDisease()">查询</button>
+                            </div>
+                            <div class="mt-4 text-sm space-y-2" id="diseaseResult">
+                                <div class="text-slate-500">支持查询：近视、远视、散光、AMD、CNV 等</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: 个人中心 -->
+                    <div id="tab-profile" class="p-4 md:p-6 space-y-4 tab-panel hidden">
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div class="glass rounded-xl p-4 border border-slate-100">
+                                <div class="text-sm text-slate-500 mb-2">当前视力</div>
+                                <div class="text-2xl font-semibold" id="profileVision">--</div>
+                                <div class="text-xs text-slate-500 mt-1">基于最近一次检测</div>
+                            </div>
+                            <div class="glass rounded-xl p-4 border border-slate-100">
+                                <div class="text-sm text-slate-500 mb-2">最新OCT结果</div>
+                                <div class="text-lg font-semibold" id="profileOct">--</div>
+                                <div class="text-xs text-slate-500 mt-1">上传眼底图后自动更新</div>
+                            </div>
+                        </div>
+                        <div class="glass rounded-xl p-4 border border-slate-100">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="font-semibold">工具状态</div>
+                                <button class="text-xs text-blue-600 hover:underline" onclick="checkToolStatus()">刷新</button>
+                            </div>
+                            <div class="text-sm space-y-1" id="toolStatusDetail"></div>
+                        </div>
+                        <div class="glass rounded-xl p-4 border border-slate-100">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="font-semibold">视力趋势（示例数据）</div>
+                            </div>
+                            <div class="h-48">
+                                <canvas id="visionChart"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="sidebar">
-                <div class="sidebar-section">
-                    <h3>健康数据</h3>
-                    <div class="info-card">
-                        <h4>当前视力</h4>
-                        <p id="currentVision">--</p>
+            <!-- 右侧：即时信息 -->
+            <div class="space-y-4">
+                <div class="glass card-shadow rounded-2xl p-4 border border-slate-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <div class="text-sm text-slate-500">风险评估</div>
+                            <div class="text-lg font-semibold" id="riskBadge">--</div>
+                        </div>
+                        <div id="riskTag" class="text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-600">未评估</div>
                     </div>
-                    <div class="info-card">
-                        <h4>OCT检测结果</h4>
-                        <p id="octResult">--</p>
+                    <div class="text-sm text-slate-600" id="followupBox">等待输入后提供追问建议</div>
+                </div>
+                <div class="glass card-shadow rounded-2xl p-4 border border-slate-100">
+                    <div class="text-sm text-slate-500 mb-2">最新报告 / 下载</div>
+                    <div class="flex flex-wrap gap-2 text-xs" id="downloadChips">
+                        <span class="text-slate-400">无可用报告</span>
                     </div>
                 </div>
-
-                <div class="sidebar-section">
-                    <h3>快速操作</h3>
-                    <button class="btn btn-secondary" style="width: 100%; margin-bottom: 8px;" onclick="loadHealthData()">
-                        刷新健康数据
-                    </button>
-                    <button class="btn btn-secondary" style="width: 100%;" onclick="clearChat()">
-                        清空对话
-                    </button>
+                <div class="glass card-shadow rounded-2xl p-4 border border-slate-100">
+                    <div class="text-sm text-slate-500 mb-2">快速操作</div>
+                    <div class="flex flex-wrap gap-2">
+                        <button class="chip bg-blue-50 border border-blue-100" onclick="switchTab('tab-vision')">去测视力</button>
+                        <button class="chip bg-green-50 border border-green-100" onclick="document.getElementById('imageInput').click()">上传OCT</button>
+                        <button class="chip bg-purple-50 border border-purple-100" onclick="switchTab('tab-chat')">AI问诊</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -418,291 +192,349 @@
     <script>
         const API_BASE = 'http://127.0.0.1:5000';
         let userId = localStorage.getItem('user_id') || null;
+        let lastActions = [];
+        let chartInstance = null;
 
-        // 初始化
         document.addEventListener('DOMContentLoaded', () => {
+            switchTab('tab-vision');
             checkToolStatus();
             loadHealthData();
+            initChart();
         });
 
-        // 检查工具状态
+        function switchTab(id) {
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+            document.querySelectorAll('[data-tab]').forEach(t => t.classList.remove('tab-active'));
+            document.querySelector(`[data-tab="${id}"]`)?.classList.add('tab-active');
+        }
+
         async function checkToolStatus() {
             try {
-                const response = await fetch(`${API_BASE}/api/tool-status`);
-                const data = await response.json();
+                const res = await fetch(`${API_BASE}/api/tool-status`);
+                const data = await res.json();
+                const statusDot = document.getElementById('statusDot');
                 const statusText = document.getElementById('statusText');
-                const statusDot = document.querySelector('.status-dot');
-                
                 if (data.llm_ready && data.oct_ready) {
+                    statusDot.classList.remove('bg-amber-400','bg-red-400');
+                    statusDot.classList.add('bg-emerald-500');
                     statusText.textContent = '服务正常';
-                    statusDot.style.background = '#4ade80';
                 } else {
+                    statusDot.classList.remove('bg-emerald-500');
+                    statusDot.classList.add('bg-amber-400');
                     statusText.textContent = '部分服务不可用';
-                    statusDot.style.background = '#f59e0b';
                 }
-            } catch (error) {
-                console.error('检查状态失败:', error);
+                updateToolStatusDisplay(data);
+            } catch (e) {
+                console.error(e);
             }
         }
 
-        // 发送消息
         async function sendMessage() {
             const input = document.getElementById('messageInput');
             const text = input.value.trim();
-            
             if (!text) return;
-
-            // 添加用户消息到界面
-            addMessage('user', text);
+            addChatBubble(text, true);
             input.value = '';
             setLoading(true);
-
             try {
-                const response = await fetch(`${API_BASE}/chat`, {
+                const resp = await fetch(`${API_BASE}/chat`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        text: text,
-                        user_id: userId
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, user_id: userId })
                 });
-
-                const data = await response.json();
-                
-                // 保存user_id
+                const data = await resp.json();
                 if (data.user_id) {
-                    userId = data.user_id;
-                    localStorage.setItem('user_id', userId);
+                    userId = data.user_id; localStorage.setItem('user_id', userId);
                 }
-
-                if (data.status === 'ok') {
-                    addMessage('assistant', data.answer || data.message, data.data);
-                    
-                    // 更新健康数据
-                    if (data.data) {
-                        if (data.data.vision_test) {
-                            updateVisionDisplay(data.data.vision_test);
-                        }
-                        if (data.data.oct_result) {
-                            document.getElementById('octResult').textContent = data.data.oct_result;
-                        }
-                    }
-                } else {
-                    addErrorMessage(data.message || '处理失败，请稍后重试');
-                }
-            } catch (error) {
-                console.error('发送消息失败:', error);
-                addErrorMessage('网络错误，请检查后端服务是否运行');
+                handleResponseData(data);
+            } catch (e) {
+                addSystemInfo('网络错误，请检查后端服务是否运行');
             } finally {
                 setLoading(false);
             }
         }
 
-        // 添加消息到界面
-        function addMessage(role, content, data = null) {
-            const messagesDiv = document.getElementById('chatMessages');
-            const emptyState = messagesDiv.querySelector('.empty-state');
-            if (emptyState) {
-                emptyState.remove();
+        async function handleImageUpload(e) {
+            const file = e.target.files[0];
+            document.getElementById('fileNameDisplay').textContent = file ? file.name : '未选择文件';
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('user_id', userId || '');
+            setLoading(true);
+            try {
+                const resp = await fetch(`${API_BASE}/chat`, { method: 'POST', body: formData });
+                const data = await resp.json();
+                if (data.user_id) { userId = data.user_id; localStorage.setItem('user_id', userId); }
+                handleResponseData(data);
+            } catch (e) {
+                addSystemInfo('图片上传失败，请重试');
+            } finally {
+                setLoading(false);
+                e.target.value = '';
             }
-
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${role}`;
-
-            let html = `<div class="message-content">${escapeHtml(content)}</div>`;
-
-            if (role === 'assistant' && data) {
-                // 添加风险等级
-                const riskLevel = data.risk_level;
-                if (riskLevel) {
-                    const riskText = {
-                        'high': '高风险',
-                        'medium': '中风险',
-                        'low': '低风险'
-                    };
-                    html += `<div class="risk-badge risk-${riskLevel}">${riskText[riskLevel] || riskLevel}</div>`;
-                }
-
-                // 添加追问建议
-                const followups = data.followups || [];
-                if (followups.length > 0) {
-                    html += '<div class="followups">';
-                    followups.forEach(followup => {
-                        html += `<span class="followup-item" onclick="sendFollowup('${escapeHtml(followup)}')">${escapeHtml(followup)}</span>`;
-                    });
-                    html += '</div>';
-                }
-            }
-
-            messageDiv.innerHTML = html;
-            messagesDiv.appendChild(messageDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        // 添加错误消息
-        function addErrorMessage(message) {
-            const messagesDiv = document.getElementById('chatMessages');
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'error-message';
-            errorDiv.textContent = message;
-            messagesDiv.appendChild(errorDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        async function startVisionTest() {
+            setLoading(true);
+            try {
+                const resp = await fetch(`${API_BASE}/action/vision-test`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await resp.json();
+                if (data.user_id) { userId = data.user_id; localStorage.setItem('user_id', userId); }
+                handleResponseData(data);
+                loadHealthData();
+            } catch (e) {
+                addSystemInfo('视力检测失败，请检查摄像头');
+            } finally {
+                setLoading(false);
+            }
         }
 
-        // 发送追问
-        function sendFollowup(text) {
+        async function loadHealthData() {
+            try {
+                const resp = await fetch(`${API_BASE}/api/profile/health-data`);
+                const data = await resp.json();
+                if (data.status === 'ok') {
+                    const vision = data.current_vision;
+                    const vt = data.vision_test || {};
+                    document.getElementById('currentVision').textContent = vision ? vision.toFixed(2) : '--';
+                    document.getElementById('visionSummary').textContent = vt.left || vt.right ? `左 ${vt.left || '--'} / 右 ${vt.right || '--'}` : '暂无记录';
+                    document.getElementById('profileVision').textContent = vt.left || vt.right ? `左 ${vt.left || '--'} / 右 ${vt.right || '--'}` : '--';
+                    if (data.vision_test) updateVisionHistory([data.vision_test]);
+                    if (data.oct_result) {
+                        document.getElementById('octResult').textContent = data.oct_result;
+                        document.getElementById('profileOct').textContent = data.oct_result;
+                    }
+                    updateChartSample(vision);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function queryDisease() {
+            const val = document.getElementById('diseaseInput').value.trim();
+            if (!val) return;
+            try {
+                const resp = await fetch(`${API_BASE}/api/diagnosis/disease?type=${encodeURIComponent(val)}`);
+                const data = await resp.json();
+                renderDisease(data);
+            } catch (e) {
+                renderDisease({ status: 'error', message: '查询失败，请稍后重试' });
+            }
+        }
+
+        function renderDisease(data) {
+            const box = document.getElementById('diseaseResult');
+            if (data.status === 'error') {
+                box.innerHTML = `<div class="text-red-500 text-sm">${data.message || '查询失败'}</div>`;
+                return;
+            }
+            box.innerHTML = `
+                <div class="font-semibold text-base">${data.name || '未知疾病'}</div>
+                <div class="text-sm text-slate-600 mt-1">${data.description || '暂无描述'}</div>
+                <div class="text-sm mt-2"><span class="font-semibold">症状：</span>${(data.symptoms||[]).join('，') || '暂无'}</div>
+                <div class="text-sm mt-1"><span class="font-semibold">成因：</span>${(data.causes||[]).join('，') || '暂无'}</div>
+                <div class="text-sm mt-1"><span class="font-semibold">治疗：</span>${(data.treatment||[]).join('，') || '暂无'}</div>
+                <div class="text-sm mt-1"><span class="font-semibold">预防：</span>${(data.prevention||[]).join('，') || '暂无'}</div>
+            `;
+        }
+
+        function handleResponseData(data) {
+            if (data.status !== 'ok') {
+                addSystemInfo(data.message || '处理失败，请稍后重试');
+                return;
+            }
+            const answer = data.answer || data.message || '收到';
+            addChatBubble(answer, false, data.data);
+            updateRisk(data.data);
+            if (data.data?.vision_test) {
+                document.getElementById('visionSummary').textContent = `左 ${data.data.vision_test.left || '--'} / 右 ${data.data.vision_test.right || '--'}`;
+                updateVisionHistory([data.data.vision_test]);
+            }
+            if (data.data?.oct_result) {
+                document.getElementById('octResult').textContent = data.data.oct_result;
+                document.getElementById('profileOct').textContent = data.data.oct_result;
+            }
+            const actions = collectActions(data);
+            renderActions(actions);
+            renderDownloads(actions);
+        }
+
+        function collectActions(data) {
+            const res = [];
+            if (Array.isArray(data.actions)) res.push(...data.actions);
+            if (data.data && Array.isArray(data.data.actions)) res.push(...data.data.actions);
+            if (data.action && typeof data.action === 'string') res.push({ type: data.action });
+            return res;
+        }
+
+        function renderActions(actions) {
+            lastActions = actions || [];
+            const row = document.getElementById('actionsRow');
+            row.innerHTML = '';
+            lastActions.forEach(act => {
+                const btn = document.createElement('button');
+                btn.className = 'px-3 py-1 text-xs rounded-full border border-slate-200 bg-white hover:border-blue-400';
+                btn.textContent = actionLabel(act);
+                btn.onclick = () => handleAction(act);
+                row.appendChild(btn);
+            });
+        }
+
+        function renderDownloads(actions) {
+            const box = document.getElementById('downloadChips');
+            box.innerHTML = '';
+            const downloads = actions.filter(a => a.type === 'download' && a.url);
+            if (!downloads.length) {
+                box.innerHTML = '<span class="text-slate-400 text-xs">无可用报告</span>';
+                return;
+            }
+            downloads.forEach(d => {
+                const chip = document.createElement('button');
+                chip.className = 'chip bg-emerald-50 border border-emerald-100 text-emerald-700';
+                chip.textContent = d.text || '下载报告';
+                chip.onclick = () => window.open(d.url, '_blank');
+                box.appendChild(chip);
+            });
+        }
+
+        function actionLabel(a) {
+            switch (a.type) {
+                case 'vision_test': return '进行视力检测';
+                case 'upload_image': return '上传OCT图';
+                case 'download': return a.text || '下载报告';
+                default: return a.text || '操作';
+            }
+        }
+
+        function handleAction(a) {
+            if (!a) return;
+            if (a.type === 'vision_test') switchTab('tab-vision'), startVisionTest();
+            if (a.type === 'upload_image') document.getElementById('imageInput').click();
+            if (a.type === 'download' && a.url) window.open(a.url, '_blank');
+        }
+
+        function addChatBubble(text, isUser = false, extra = {}) {
+            const box = document.getElementById('chatMessages');
+            const wrap = document.createElement('div');
+            wrap.className = `flex ${isUser ? 'justify-end' : 'justify-start'} bubble`;
+            const content = document.createElement('div');
+            content.className = `max-w-[80%] rounded-2xl px-3 py-2 text-sm ${isUser ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white border border-slate-200 rounded-bl-none'}`;
+            content.textContent = text;
+            wrap.appendChild(content);
+            box.appendChild(wrap);
+            // followups
+            if (!isUser && extra?.followups?.length) {
+                const frow = document.createElement('div');
+                frow.className = 'flex flex-wrap gap-2 mt-2';
+                extra.followups.forEach(f => {
+                    const btn = document.createElement('button');
+                    btn.className = 'chip bg-blue-50 border border-blue-100 text-blue-700';
+                    btn.textContent = f;
+                    btn.onclick = () => { document.getElementById('messageInput').value = f; sendMessage(); };
+                    frow.appendChild(btn);
+                });
+                box.appendChild(frow);
+            }
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function addSystemInfo(msg) {
+            const box = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = 'text-center text-xs text-slate-500';
+            div.textContent = msg;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function setLoading(flag) {
+            const btn = document.getElementById('sendBtn');
+            if (flag) {
+                btn.disabled = true;
+                btn.textContent = '发送中...';
+            } else {
+                btn.disabled = false;
+                btn.textContent = '发送';
+            }
+        }
+
+        function handleKeyDown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+        }
+
+        function quickAsk(text) {
             document.getElementById('messageInput').value = text;
             sendMessage();
         }
 
-        // 处理图片上传
-        async function handleImageUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('image', file);
-            formData.append('user_id', userId || '');
-
-            setLoading(true);
-
-            try {
-                const response = await fetch(`${API_BASE}/chat`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                if (data.status === 'ok') {
-                    addMessage('assistant', data.answer || data.message, data.data);
-                    if (data.data && data.data.oct_result) {
-                        document.getElementById('octResult').textContent = data.data.oct_result;
-                    }
-                } else {
-                    addErrorMessage(data.message || '图片处理失败');
-                }
-            } catch (error) {
-                console.error('上传图片失败:', error);
-                addErrorMessage('图片上传失败，请稍后重试');
-            } finally {
-                setLoading(false);
-                event.target.value = '';
+        function updateRisk(data) {
+            if (!data) return;
+            const risk = data.risk_level || data.risk;
+            const tag = document.getElementById('riskTag');
+            const badge = document.getElementById('riskBadge');
+            const follow = document.getElementById('followupBox');
+            const map = { high: ['高风险','bg-red-100 text-red-700'], medium: ['中风险','bg-amber-100 text-amber-700'], low: ['低风险','bg-emerald-100 text-emerald-700'] };
+            if (risk && map[risk]) {
+                badge.textContent = map[risk][0];
+                tag.className = `text-xs px-3 py-1 rounded-full ${map[risk][1]}`;
+                tag.textContent = map[risk][0];
+            }
+            if (data.followups?.length) {
+                follow.innerHTML = '<span class="font-semibold">追问建议：</span>' + data.followups.join('；');
             }
         }
 
-        // 开始视力检测
-        async function startVisionTest() {
-            setLoading(true);
-            try {
-                const response = await fetch(`${API_BASE}/action/vision-test`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        user_id: userId
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.status === 'ok') {
-                    const result = data.data.vision_test;
-                    if (result) {
-                        const message = `视力检测完成！\n左眼：${result.left || '--'}\n右眼：${result.right || '--'}`;
-                        addMessage('assistant', message, data.data);
-                        updateVisionDisplay(result);
-                    } else {
-                        addMessage('assistant', data.message || '视力检测完成');
-                    }
-                } else {
-                    addErrorMessage(data.message || '视力检测失败');
-                }
-            } catch (error) {
-                console.error('视力检测失败:', error);
-                addErrorMessage('视力检测失败，请检查摄像头连接');
-            } finally {
-                setLoading(false);
-            }
+        function updateToolStatusDisplay(status) {
+            if (!status) return;
+            const detail = document.getElementById('toolStatusDetail');
+            detail.innerHTML = `
+                <div>LLM：${status.llm_ready ? '可用' : '未就绪'} ${status.llm_error ? '('+status.llm_error+')' : ''}</div>
+                <div>OCT：${status.oct_ready ? '可用' : '未就绪'} ${status.oct_error ? '('+status.oct_error+')' : ''}</div>
+            `;
         }
 
-        // 加载健康数据
-        async function loadHealthData() {
-            try {
-                const response = await fetch(`${API_BASE}/api/profile/health-data`, {
-                    headers: {
-                        'Cookie': `user_id=${userId}`
-                    }
-                });
-                const data = await response.json();
-
-                if (data.status === 'ok') {
-                    if (data.current_vision) {
-                        document.getElementById('currentVision').textContent = data.current_vision.toFixed(2);
-                    }
-                    if (data.vision_test) {
-                        updateVisionDisplay(data.vision_test);
-                    }
-                }
-            } catch (error) {
-                console.error('加载健康数据失败:', error);
-            }
+        function updateVisionHistory(list) {
+            const box = document.getElementById('visionHistory');
+            box.innerHTML = '';
+            list.slice(0,3).forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'p-3 rounded-lg border border-slate-200 bg-white flex justify-between text-sm';
+                div.innerHTML = `<span>${new Date().toLocaleDateString()}</span><span>左 ${item.left || '--'} / 右 ${item.right || '--'}</span>`;
+                box.appendChild(div);
+            });
         }
 
-        // 更新视力显示
-        function updateVisionDisplay(visionTest) {
-            if (visionTest && typeof visionTest === 'object') {
-                const left = visionTest.left || '--';
-                const right = visionTest.right || '--';
-                document.getElementById('currentVision').textContent = 
-                    `左: ${left} | 右: ${right}`;
-            }
+        function initChart() {
+            const ctx = document.getElementById('visionChart');
+            if (!ctx) return;
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['1月','2月','3月','4月','5月','6月'],
+                    datasets: [{
+                        label: '视力(示例)',
+                        data: [1.0,0.9,0.9,0.85,0.8,0.78],
+                        borderColor: '#2563eb',
+                        tension: 0.35,
+                        fill: false
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0.5, max: 1.2 } } }
+            });
         }
 
-        // 清空对话
-        function clearChat() {
-            if (confirm('确定要清空对话记录吗？')) {
-                const messagesDiv = document.getElementById('chatMessages');
-                messagesDiv.innerHTML = `
-                    <div class="empty-state">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                        </svg>
-                        <p>欢迎使用眼部医疗AI智能助手</p>
-                        <p style="font-size: 14px; margin-top: 8px;">请描述您的眼部症状，或上传眼部图片进行分析</p>
-                    </div>
-                `;
-            }
-        }
-
-        // 设置加载状态
-        function setLoading(loading) {
-            const sendBtn = document.getElementById('sendBtn');
-            if (loading) {
-                sendBtn.disabled = true;
-                sendBtn.innerHTML = '<span class="loading"></span> 发送中...';
-            } else {
-                sendBtn.disabled = false;
-                sendBtn.innerHTML = '发送';
-            }
-        }
-
-        // 处理键盘事件
-        function handleKeyDown(event) {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                sendMessage();
-            }
-        }
-
-        // HTML转义
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+        function updateChartSample(latest) {
+            if (!chartInstance || latest === undefined || latest === null) return;
+            const d = chartInstance.data.datasets[0].data;
+            d[d.length-1] = Number(latest.toFixed(2));
+            chartInstance.update();
         }
     </script>
 </body>
