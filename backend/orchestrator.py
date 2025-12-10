@@ -57,6 +57,44 @@ class Orchestrator:
         if any(k in text for k in medium_kw):
             return "medium"
         return "low"
+    
+    def _generate_fallback_response(self, text: Optional[str], struct: Dict[str, Any], risk: str, risk_reason: str, user_mem: Dict[str, Any]) -> str:
+        """当LLM不可用时，生成基础回复"""
+        if not text:
+            return "请描述您的眼部症状，我会尽力为您提供建议。"
+        
+        # 根据风险级别和症状生成基础回复
+        response_parts = []
+        
+        # 风险提示
+        if risk == "high":
+            response_parts.append("⚠️ 根据您的描述，症状较为严重，建议尽快就医。")
+        elif risk == "medium":
+            response_parts.append("⚠️ 建议您尽快咨询专业眼科医生。")
+        
+        # 基础建议
+        if "模糊" in text or "看不清" in text or "视力" in text:
+            response_parts.append("关于视力问题，建议：\n1. 避免长时间用眼\n2. 保持适当距离看屏幕\n3. 定期进行视力检查")
+            if not user_mem.get("vision_test"):
+                response_parts.append("建议进行视力检测以获取准确数据。")
+        
+        if "干涩" in text or "疲劳" in text:
+            response_parts.append("关于眼部干涩/疲劳，建议：\n1. 多眨眼，保持眼部湿润\n2. 使用人工泪液\n3. 每20分钟看远处20秒（20-20-20法则）")
+        
+        if "疼痛" in text or "痛" in text:
+            response_parts.append("眼部疼痛需要重视，建议：\n1. 立即停止用眼\n2. 如疼痛持续或加剧，请尽快就医\n3. 避免揉眼睛")
+        
+        if "飞蚊" in text or "黑影" in text:
+            response_parts.append("关于飞蚊症，建议：\n1. 如突然出现大量飞蚊或伴随闪光，需立即就医\n2. 定期检查眼底\n3. 避免剧烈运动")
+        
+        # 通用建议
+        if not response_parts:
+            response_parts.append("根据您的描述，建议：\n1. 注意休息，避免过度用眼\n2. 保持良好用眼习惯\n3. 如症状持续或加重，请咨询专业医生")
+        
+        # 添加模型状态提示
+        response_parts.append("\n\n[提示] AI模型暂时不可用，以上为基础建议。如需更详细的诊断，请修复模型加载问题。")
+        
+        return "\n".join(response_parts)
 
     def _tool_status(self) -> Dict[str, Any]:
         """Returns current availability of core tools."""
@@ -288,10 +326,19 @@ class Orchestrator:
 
         # Call LLM
         if tool_status["llm_error"]:
+            # 模型加载失败时，提供基础回复而不是直接报错
+            fallback_answer = self._generate_fallback_response(text, struct, risk, risk_reason, user_mem)
             return {
-                "status": "error",
-                "message": tool_status["llm_error"],
-                "data": {"tool_status": tool_status}
+                "status": "ok",  # 改为ok，让前端能正常显示
+                "answer": fallback_answer,
+                "data": {
+                    "tool_status": tool_status,
+                    "risk_level": risk,
+                    "risk_reason": risk_reason,
+                    "followups": followups,
+                    "llm_unavailable": True,  # 标记LLM不可用
+                    "fallback": True  # 标记这是fallback回复
+                }
             }
         llm_res = self.llm.get_health_advice(
             symptoms=str(context),
@@ -300,8 +347,21 @@ class Orchestrator:
         )
         if isinstance(llm_res, dict):
             if llm_res.get("status") == "error":
-                # 本地模型未就绪或加载失败
-                return {"status": "error", "message": llm_res.get("message")}
+                # 本地模型未就绪或加载失败，使用fallback
+                fallback_answer = self._generate_fallback_response(text, struct, risk, risk_reason, user_mem)
+                return {
+                    "status": "ok",
+                    "answer": fallback_answer,
+                    "data": {
+                        "tool_status": tool_status,
+                        "risk_level": risk,
+                        "risk_reason": risk_reason,
+                        "followups": followups,
+                        "llm_unavailable": True,
+                        "fallback": True,
+                        "llm_error": llm_res.get("message")
+                    }
+                }
             answer = llm_res.get("answer", "")
         else:
             answer = str(llm_res)
