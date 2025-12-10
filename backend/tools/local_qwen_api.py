@@ -3,6 +3,10 @@ Local Qwen model client.
 Gracefully handles missing weights: if model files are absent, returns a clear message.
 """
 import os
+# 在导入transformers之前，禁用TensorFlow导入以避免DLL加载错误
+os.environ["TRANSFORMERS_NO_TF"] = "1"  # 禁用TensorFlow后端
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # 抑制TensorFlow日志
+
 import glob
 from typing import Optional, Dict, Any
 import torch
@@ -100,19 +104,36 @@ class LocalQwenAPI:
             )
             return
             
-        if not self._has_weights(self.model_path):
+        # 转换为绝对路径，避免Windows相对路径问题
+        model_path_abs = os.path.abspath(os.path.normpath(self.model_path))
+        
+        if not os.path.exists(model_path_abs):
+            self.load_error = f"本地模型未就绪：路径不存在: {model_path_abs}"
+            return
+            
+        if not self._has_weights(model_path_abs):
             self.load_error = (
-                f"本地模型未就绪：在路径 {self.model_path} 中未找到权重文件。"
+                f"本地模型未就绪：在路径 {model_path_abs} 中未找到权重文件。"
                 f"请将模型权重放到该路径（需要 model-*.safetensors 或 pytorch_model*.bin 和 tokenizer 文件），"
                 f"或运行微调脚本生成 ./qwen_finetuned_model。"
             )
             return
             
         try:
-            print(f"正在加载模型分词器，路径: {self.model_path}")
+            print(f"正在加载模型分词器，路径: {model_path_abs}")
+            
+            # 在Windows上，确保路径格式正确，并使用本地文件系统标志
+            # 使用绝对路径避免相对路径导致的文件句柄问题
+            tokenizer_path = model_path_abs
+            
+            # 加载tokenizer，添加use_fast=False避免Windows上的文件句柄问题
             self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_path, trust_remote_code=True
+                tokenizer_path, 
+                trust_remote_code=True,
+                use_fast=False,  # 在Windows上避免文件句柄问题
+                local_files_only=True  # 强制使用本地文件，避免网络访问
             )
+            
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
                 self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
@@ -120,24 +141,33 @@ class LocalQwenAPI:
             # 确定基础模型名称
             base_name = self.base_model_name
             # 如果本地目录就是基座权重，则直接加载
-            if self._has_weights(self.model_path) and os.path.exists(
-                os.path.join(self.model_path, "config.json")
+            if self._has_weights(model_path_abs) and os.path.exists(
+                os.path.join(model_path_abs, "config.json")
             ):
-                base_name = self.model_path
+                base_name = model_path_abs
 
             print(f"正在加载基础模型: {base_name}")
+            
+            # 确保base_name也是绝对路径
+            if os.path.isabs(base_name) or os.path.exists(base_name):
+                base_name_abs = os.path.abspath(os.path.normpath(base_name))
+            else:
+                base_name_abs = base_name  # 如果是HuggingFace模型名称，保持原样
+            
+            # 加载模型，添加local_files_only避免网络访问导致的文件句柄问题
             base_model = AutoModelForCausalLM.from_pretrained(
-                base_name,
+                base_name_abs,
                 trust_remote_code=True,
                 torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
                 device_map="auto" if self.device == "cuda" else None,
+                local_files_only=os.path.exists(base_name_abs) if os.path.isabs(base_name_abs) or os.path.exists(base_name_abs) else False,  # 如果是本地路径则强制本地加载
             )
 
             # 如果存在 PEFT 适配权重则尝试加载
-            adapter_config_path = os.path.join(self.model_path, "adapter_config.json")
+            adapter_config_path = os.path.join(model_path_abs, "adapter_config.json")
             if os.path.exists(adapter_config_path):
-                print(f"检测到 LoRA 适配器配置，正在加载: {self.model_path}")
-                self.model = PeftModel.from_pretrained(base_model, self.model_path)
+                print(f"检测到 LoRA 适配器配置，正在加载: {model_path_abs}")
+                self.model = PeftModel.from_pretrained(base_model, model_path_abs)
             else:
                 print("未检测到 LoRA 适配器，使用基础模型")
                 self.model = base_model
@@ -147,6 +177,22 @@ class LocalQwenAPI:
             self.model.eval()
             self.load_error = None
             print("模型加载成功!")
+        except OSError as e:
+            # Windows特定的文件句柄错误
+            if "WinError 6" in str(e) or "句柄无效" in str(e):
+                error_msg = (
+                    f"Windows文件句柄错误：模型路径 {model_path_abs} 可能被其他进程占用，"
+                    f"或路径格式不正确。请确保：\n"
+                    f"1. 模型文件未被其他程序打开\n"
+                    f"2. 路径不包含特殊字符\n"
+                    f"3. 有足够的文件访问权限\n"
+                    f"原始错误: {str(e)}"
+                )
+                self.load_error = error_msg
+                print(f"模型加载失败: {self.load_error}")
+            else:
+                self.load_error = f"本地模型加载失败：{str(e)}"
+                print(f"模型加载失败: {self.load_error}")
         except Exception as e:
             self.load_error = f"本地模型加载失败：{str(e)}"
             print(f"模型加载失败: {self.load_error}")
