@@ -1,3 +1,7 @@
+"""
+main.py - CLI agent for multi-turn Q&A (uses latest orchestrator/LLM/OCT).
+默认进入多轮问答模式；如需烟囱自测可用 --mode smoke。
+"""
 import sys
 import os
 import json
