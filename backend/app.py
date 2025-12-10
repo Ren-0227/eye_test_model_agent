@@ -82,17 +82,17 @@ def get_user_id():
 
 @app.route('/')
 def index():
-    """返回前端页面"""
-    frontend_path = os.path.join(BASE_DIR, "frontend", "index.html")
+    """返回前端页面（ui5.html）"""
+    frontend_path = os.path.join(BASE_DIR, "ui5.html")
     if os.path.exists(frontend_path):
-        return send_from_directory(os.path.join(BASE_DIR, "frontend"), "index.html")
+        return send_from_directory(BASE_DIR, "ui5.html")
     else:
         return """
         <html>
             <head><title>眼部医疗AI助手</title></head>
             <body>
                 <h1>眼部医疗AI助手后端服务</h1>
-                <p>请访问前端页面：<a href="/static/index.html">前端页面</a></p>
+                <p>请访问前端页面：<a href="/ui5.html">前端页面</a></p>
                 <p>API文档：</p>
                 <ul>
                     <li>POST /chat - 对话接口</li>
