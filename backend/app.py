@@ -245,13 +245,31 @@ def vision_test_endpoint():
 @app.route('/')
 def index():
     """主页面 - 返回完整的ui5.html"""
-    # 直接读取并返回ui5.html文件内容
+    # 直接读取并返回ui5.html文件内容（使用绝对路径）
     ui5_path = os.path.join(BASE_DIR, 'ui5.html')
+    ui5_path = os.path.abspath(os.path.normpath(ui5_path))
+    
+    print(f"[app] index() - 查找ui5.html，路径: {ui5_path}", flush=True)
+    
     if os.path.exists(ui5_path):
-        with open(ui5_path, 'r', encoding='utf-8') as f:
-            return f.read()
-    # 如果ui5.html不存在，尝试返回templates/index.html
-    return render_template('index.html')
+        try:
+            with open(ui5_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            print(f"[app] index() - 成功读取ui5.html，大小: {len(content)} 字符", flush=True)
+            return content
+        except Exception as e:
+            print(f"[app] index() - 读取ui5.html失败: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
+            return f"读取ui5.html失败: {str(e)}", 500
+    else:
+        print(f"[app] index() - ui5.html不存在，路径: {ui5_path}", flush=True)
+        # 如果ui5.html不存在，尝试返回templates/index.html
+        try:
+            return render_template('index.html')
+        except Exception as e:
+            print(f"[app] index() - render_template失败: {e}", flush=True)
+            return f"页面未找到。ui5.html路径: {ui5_path}", 404
 
 @app.route('/demo')
 def demo():
