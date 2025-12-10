@@ -238,6 +238,7 @@ class Orchestrator:
             return {
                 "status": "ok",
                 "answer": "请描述您的眼部症状，或上传眼部图片进行分析。",
+                "message": "请描述您的眼部症状，或上传眼部图片进行分析。",  # 添加 message 字段
                 "action": None,
                 "data": {"tool_status": tool_status}
             }
@@ -248,6 +249,7 @@ class Orchestrator:
                 return {
                     "status": "error",
                     "message": tool_status["oct_error"],
+                    "answer": tool_status["oct_error"],  # 添加 answer 字段
                     "data": {"tool_status": tool_status}
                 }
             image_path = self._save_uploaded_file(image_file)
@@ -257,6 +259,7 @@ class Orchestrator:
                     return {
                         "status": "error",
                         "message": "图片质量不佳，建议重新拍摄。",
+                        "answer": "图片质量不佳，建议重新拍摄。",  # 添加 answer 字段
                         "data": {"quality": quality, "tool_status": tool_status}
                     }
                 oct_result = analyze_image(image_path)
@@ -266,11 +269,16 @@ class Orchestrator:
                 return {
                     "status": "ok",
                     "answer": f"OCT分析结果：{oct_result}",
+                    "message": f"OCT分析结果：{oct_result}",  # 添加 message 字段
                     "action": None,
                     "data": {"oct_result": oct_result, "report_path": report_path, "risk_level": self._risk_level(oct_result)}
                 }
             except Exception as e:
-                return {"status": "error", "message": f"图片处理失败: {e}"}
+                return {
+                "status": "error", 
+                "message": f"图片处理失败: {e}",
+                "answer": f"图片处理失败: {e}"  # 添加 answer 字段
+            }
 
         # Structured symptoms + risk
         struct = extract_structured(text)
@@ -293,6 +301,7 @@ class Orchestrator:
                     return {
                         "status": "ok",
                         "answer": "建议进行视力检测，请启动摄像头测试。",
+                        "message": "建议进行视力检测，请启动摄像头测试。",  # 添加 message 字段
                         "action": "vision_test",
                         "data": {
                             "risk_level": risk,
@@ -306,6 +315,7 @@ class Orchestrator:
                 return {
                     "status": "ok",
                     "answer": "建议进行视力检测，请启动摄像头测试。",
+                    "message": "建议进行视力检测，请启动摄像头测试。",  # 添加 message 字段
                     "action": "vision_test",
                     "data": {
                         "risk_level": risk,
@@ -320,6 +330,7 @@ class Orchestrator:
             return {
                 "status": "ok",
                 "answer": "请再详细描述您的症状（如视力模糊、眼痛、飞蚊等），便于给出建议。",
+                "message": "请再详细描述您的症状（如视力模糊、眼痛、飞蚊等），便于给出建议。",  # 添加 message 字段
                 "action": None,
                 "data": {"tool_status": tool_status, "followups": followups}
             }
@@ -331,6 +342,7 @@ class Orchestrator:
             return {
                 "status": "ok",  # 改为ok，让前端能正常显示
                 "answer": fallback_answer,
+                "message": fallback_answer,  # 添加 message 字段作为备用
                 "data": {
                     "tool_status": tool_status,
                     "risk_level": risk,
@@ -352,6 +364,7 @@ class Orchestrator:
                 return {
                     "status": "ok",
                     "answer": fallback_answer,
+                    "message": fallback_answer,  # 添加 message 字段作为备用
                     "data": {
                         "tool_status": tool_status,
                         "risk_level": risk,
@@ -376,9 +389,11 @@ class Orchestrator:
             "chat_history": history[-20:]  # 保留最近20轮对话
         })
         report_path = generate_report(user_id, text or "咨询", answer)
+        # 统一响应格式：确保 answer 和 message 都存在
         return {
             "status": "ok",
             "answer": answer,
+            "message": answer,  # 添加 message 字段作为备用，确保前端能正确解析
             "action": None,
             "data": {
                 "risk_level": risk,
@@ -400,11 +415,16 @@ class Orchestrator:
             return {
                 "status": "ok",
                 "answer": f"视力检测结果：{result}",
+                "message": f"视力检测结果：{result}",  # 添加 message 字段
                 "action": None,
                 "data": {"vision_test": result, "report_path": report_path, "risk_level": self._risk_level(result)}
             }
         except Exception as e:
-            return {"status": "error", "message": f"视力检测失败: {e}"}
+            return {
+                "status": "error", 
+                "message": f"视力检测失败: {e}",
+                "answer": f"视力检测失败: {e}"  # 添加 answer 字段
+            }
 
     def _save_uploaded_file(self, file):
         file_id = str(uuid.uuid4())
