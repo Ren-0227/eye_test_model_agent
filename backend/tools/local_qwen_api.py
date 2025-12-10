@@ -197,11 +197,32 @@ class LocalQwenAPI:
 
             # 确定基础模型名称
             base_name = self.base_model_name
+            adapter_config_path = os.path.join(model_path_abs, "adapter_config.json")
+            is_lora_model = os.path.exists(adapter_config_path)
+            
             # 如果本地目录就是基座权重，则直接加载
             if self._has_weights(model_path_abs) and os.path.exists(
                 os.path.join(model_path_abs, "config.json")
             ):
                 base_name = model_path_abs
+                print(f"[model] 使用完整模型路径: {base_name}")
+            elif is_lora_model:
+                # LoRA模型需要加载基础模型，然后加载适配器
+                print(f"[model] 检测到LoRA适配器，将加载基础模型: {self.base_model_name}")
+                # 检查基础模型是否存在本地
+                base_candidates = [
+                    "./Qwen-1_8B-Chat",
+                    "./Qwen1.8B-Chat",
+                    os.path.expanduser("~/.cache/modelscope/hub/models/qwen/Qwen-1_8B-Chat"),
+                ]
+                for candidate in base_candidates:
+                    if os.path.exists(candidate) and self._has_weights(candidate):
+                        base_name = os.path.abspath(os.path.normpath(candidate))
+                        print(f"[model] 找到本地基础模型: {base_name}")
+                        break
+                # 如果没找到本地基础模型，使用HuggingFace名称（需要网络下载）
+                if base_name == self.base_model_name:
+                    print(f"[model] 未找到本地基础模型，将尝试从HuggingFace加载: {base_name}")
 
             print(f"正在加载基础模型: {base_name}")
             
