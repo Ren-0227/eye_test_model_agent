@@ -364,10 +364,75 @@ def api_reminder_history():
 
 
 # === Disease Diagnosis ===
+@app.route("/api/diagnosis/assessment", methods=["POST"])
+def api_diagnosis_assessment():
+    """提交评估问卷"""
+    payload = request.json or {}
+    user_id = request.cookies.get('user_id') or payload.get('user_id')
+    assessment_type = payload.get('type', '')
+    answers = payload.get('answers', [])
+    
+    if not assessment_type or not answers:
+        return jsonify({"status": "error", "message": "缺少必要参数"}), 400
+    
+    # 计算评估结果
+    result = {
+        "status": "ok",
+        "type": assessment_type,
+        "score": sum(answers),  # 简单计分
+        "risk_level": "low"
+    }
+    
+    if assessment_type == "dry_eye":
+        total_score = sum(answers)
+        if total_score >= 15:
+            result["risk_level"] = "high"
+            result["recommendation"] = "建议尽快到眼科医院进行专业检查"
+        elif total_score >= 10:
+            result["risk_level"] = "medium"
+            result["recommendation"] = "建议减少用眼时间，使用人工泪液"
+        else:
+            result["recommendation"] = "保持良好的用眼习惯"
+    elif assessment_type == "myopia":
+        total_score = sum(answers)
+        if total_score >= 12:
+            result["risk_level"] = "high"
+            result["recommendation"] = "建议定期检查视力，控制近视进展"
+        elif total_score >= 8:
+            result["risk_level"] = "medium"
+            result["recommendation"] = "建议增加户外活动时间，减少近距离用眼"
+        else:
+            result["recommendation"] = "保持良好的用眼习惯，定期检查"
+    
+    # 保存评估结果到用户记忆
+    if user_id:
+        user_mem = get_user_memory(user_id)
+        assessments = user_mem.get("assessments", [])
+        assessments.append({
+            "type": assessment_type,
+            "score": result["score"],
+            "risk_level": result["risk_level"],
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        })
+        update_user_memory(user_id, {"assessments": assessments[-10:]})  # 保留最近10条
+    
+    return jsonify(result)
+
+
 @app.route("/api/diagnosis/disease", methods=["GET"])
 def api_diagnosis_disease():
     """获取疾病信息"""
     disease_type = request.args.get("type", "")
+    
+    # 疾病类型映射
+    disease_map = {
+        "myopia": "近视",
+        "hyperopia": "远视",
+        "astigmatism": "散光",
+        "glaucoma": "青光眼"
+    }
+    
+    disease_type_cn = disease_map.get(disease_type, disease_type)
     
     disease_info = {
         "myopia": {
