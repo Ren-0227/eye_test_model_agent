@@ -76,9 +76,30 @@ class LocalQwenAPI:
             return {"status": "error", "message": f"推理测试失败: {e}"}
 
     def _auto_pick_model_path(self) -> Optional[str]:
+        """自动选择模型路径，优先选择微调模型"""
         for path in DEFAULT_MODEL_CANDIDATES:
-            if os.path.isdir(path) and self._has_weights(path):
-                return path
+            # 转换为绝对路径
+            abs_path = os.path.abspath(os.path.normpath(path)) if os.path.exists(path) else path
+            if os.path.isdir(abs_path):
+                # 检查是否是微调模型（有adapter_config.json）
+                adapter_config = os.path.join(abs_path, "adapter_config.json")
+                if os.path.exists(adapter_config):
+                    print(f"[model] 检测到微调模型: {abs_path}")
+                    # 微调模型需要基础模型，检查基础模型是否存在
+                    # 如果微调模型目录本身有config.json，说明是完整模型
+                    if os.path.exists(os.path.join(abs_path, "config.json")):
+                        if self._has_weights(abs_path):
+                            print(f"[model] 选择微调模型（完整）: {abs_path}")
+                            return abs_path
+                    # 否则需要基础模型，返回微调模型路径（基础模型会在加载时自动选择）
+                    if self._has_weights(abs_path) or os.path.exists(adapter_config):
+                        print(f"[model] 选择微调模型（LoRA）: {abs_path}")
+                        return abs_path
+                # 检查是否有完整权重文件
+                elif self._has_weights(abs_path):
+                    print(f"[model] 选择基础模型: {abs_path}")
+                    return abs_path
+        print(f"[model] 未找到可用模型，候选路径: {DEFAULT_MODEL_CANDIDATES}")
         return None
 
     @staticmethod
