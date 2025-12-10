@@ -287,43 +287,21 @@ class Orchestrator:
 
         need_vision = self._should_offer_vision_test(text, struct, risk, risk_reason, user_mem)
 
-        # 视力检测决策：不仅看关键词，还考虑风险/描述不足等情况
-        if need_vision:
-            if vision_tester is not None:
-                try:
-                    vr = vision_tester.run_test()
-                    if vr is not None:
-                        user_mem["vision_test"] = vr
-                        update_user_memory(user_id, {"vision_test": vr})
-                        # 将视力结果并入症状描述，提升回答准确性
-                        text = f"{text}\n视力检测结果：{vr}"
-                except Exception as e:
-                    return {
-                        "status": "ok",
-                        "answer": "建议进行视力检测，请启动摄像头测试。",
-                        "message": "建议进行视力检测，请启动摄像头测试。",  # 添加 message 字段
-                        "action": "vision_test",
-                        "data": {
-                            "risk_level": risk,
-                            "followups": followups,
-                            "reason": risk_reason,
-                            "vision_error": str(e),
-                            "vision_test": user_mem.get("vision_test"),
-                        },
-                    }
-            else:
-                return {
-                    "status": "ok",
-                    "answer": "建议进行视力检测，请启动摄像头测试。",
-                    "message": "建议进行视力检测，请启动摄像头测试。",  # 添加 message 字段
-                    "action": "vision_test",
-                    "data": {
-                        "risk_level": risk,
-                        "followups": followups,
-                        "reason": risk_reason,
-                        "vision_test": user_mem.get("vision_test"),
-                    },
-                }
+        # 视力检测决策：如果vision_tester可用且需要检测，尝试运行检测
+        # 但即使需要视力检测，也应该先调用LLM生成回复，然后在回复中建议检测
+        vision_result_for_llm = None
+        if need_vision and vision_tester is not None:
+            try:
+                vr = vision_tester.run_test()
+                if vr is not None:
+                    user_mem["vision_test"] = vr
+                    update_user_memory(user_id, {"vision_test": vr})
+                    vision_result_for_llm = vr
+                    # 将视力结果并入症状描述，提升回答准确性
+                    text = f"{text}\n视力检测结果：{vr}"
+            except Exception as e:
+                # 视力检测失败，继续使用LLM生成回复，但会在回复中建议检测
+                pass
 
         # Short input: ask for more detail
         if text and len(text.strip()) < 4:
@@ -352,8 +330,14 @@ class Orchestrator:
                     "fallback": True  # 标记这是fallback回复
                 }
             }
+        # 构建症状描述：优先使用用户输入的文本，如果没有则使用提取的结构化症状
+        symptom_text = text if text else (struct.get("symptom_text", "") if struct else "")
+        if not symptom_text and context.get("current_symptoms"):
+            symptom_text = context["current_symptoms"]
+        
+        # 调用LLM，传入症状文本而不是整个context字典
         llm_res = self.llm.get_health_advice(
-            symptoms=str(context),
+            symptoms=symptom_text,
             vision_result=user_mem.get("vision_test"),
             oct_result=user_mem.get("oct_result"),
         )
@@ -376,8 +360,18 @@ class Orchestrator:
                     }
                 }
             answer = llm_res.get("answer", "")
+            if not answer:
+                # 如果answer为空，使用fallback
+                answer = self._generate_fallback_response(text, struct, risk, risk_reason, user_mem)
         else:
             answer = str(llm_res)
+            if not answer or answer.strip() == "":
+                # 如果answer为空，使用fallback
+                answer = self._generate_fallback_response(text, struct, risk, risk_reason, user_mem)
+
+        # 确保answer不为空
+        if not answer or answer.strip() == "":
+            answer = "抱歉，暂时无法生成回复。请稍后重试。"
 
         risk = self._risk_level(text or answer)
         # 保存对话历史到记忆
@@ -388,13 +382,18 @@ class Orchestrator:
             "last_response": answer,
             "chat_history": history[-20:]  # 保留最近20轮对话
         })
+        # 如果需要视力检测但还没有结果，在回复中添加建议
+        if need_vision and not user_mem.get("vision_test"):
+            if answer and not answer.endswith("建议进行视力检测"):
+                answer = f"{answer}\n\n💡 建议：为了更准确的诊断，建议进行视力检测。"
+        
         report_path = generate_report(user_id, text or "咨询", answer)
         # 统一响应格式：确保 answer 和 message 都存在
         return {
             "status": "ok",
             "answer": answer,
             "message": answer,  # 添加 message 字段作为备用，确保前端能正确解析
-            "action": None,
+            "action": "vision_test" if need_vision and not user_mem.get("vision_test") else None,
             "data": {
                 "risk_level": risk,
                 "followups": followups,
